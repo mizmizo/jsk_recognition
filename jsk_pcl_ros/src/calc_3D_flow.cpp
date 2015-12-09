@@ -57,7 +57,7 @@ namespace jsk_pcl_ros
   void Calc3DFlow::onInit()
   {
     DiagnosticNodelet::onInit();
-    pnh_->param("maxCorners", _maxCorners, 5);
+    pnh_->param("maxCorners", _maxCorners, 100);
     pnh_->param("qualityLevel", _qualityLevel, 0.05);
     pnh_->param("minDistance", _minDistance, 5.0);
     pnh_->param("blockSize", _blockSize, 3);
@@ -96,6 +96,37 @@ namespace jsk_pcl_ros
     sub_cloud_.unsubscribe();
     sub_info_.unsubscribe();
     sub_image_.unsubscribe();
+  }
+  
+  pcl::PointXYZ Calc3DFlow::trimmedmean(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+    cv::Point2f point)
+  {
+    std::vector<float> tmp_x,tmp_y,tmp_z;
+    for(int i = -1; i < 2; i++)
+      {
+        for(int j = -1;j < 2; j++)
+          {
+            tmp_x.push_back(cloud->points[((int)point.y + i) * cloud->width + (int)point.x + j].x);
+            tmp_y.push_back(cloud->points[((int)point.y + i) * cloud->width + (int)point.x + j].y);
+            tmp_z.push_back(cloud->points[((int)point.y + i) * cloud->width + (int)point.x + j].z);
+          }
+      }
+    std::sort(tmp_x.begin(), tmp_x.end());
+    std::sort(tmp_y.begin(), tmp_y.end());
+    std::sort(tmp_z.begin(), tmp_z.end());
+    pcl::PointXYZ mean;
+    mean.x = mean.y = mean.z = 0;
+    for(int i = 2; i < 7; i++)
+      {
+        mean.x += tmp_x.at(i);
+        mean.y += tmp_y.at(i);
+        mean.z += tmp_z.at(i);
+      }
+    mean.x = mean.x / 5;
+    mean.y = mean.y / 5;
+    mean.z = mean.z / 5;
+    return(mean);
   }
 
   void Calc3DFlow::calc3Dflow(
@@ -154,20 +185,22 @@ namespace jsk_pcl_ros
     flows_result_msg.header = image_msg->header;
 
     size_t i;
-    for(i = 0; i < points[1].size(); i++)
+    for(i = 0; i < features_found.size(); i++)
       {
         if(!features_found[i]
            || points[0][i].x >= prevcloud->width
            || points[0][i].y >= prevcloud->height
            || points[1][i].x >= cloud->width
            || points[1][i].y >= cloud->height
-           || points[0][i].x < 0
-           || points[0][i].y < 0
-           || points[1][i].x < 0
-           || points[1][i].y < 0 )
+           || points[0][i].x < 1
+           || points[0][i].y < 1
+           || points[1][i].x < 1
+           || points[1][i].y < 1 )
           continue;
-        pcl::PointXYZ prevp = prevcloud->points[points[0][i].y * prevcloud->width + points[0][i].x];
-        pcl::PointXYZ nextp = cloud->points[points[1][i].y * cloud->width + points[1][i].x];
+        // pcl::PointXYZ prevp = prevcloud->points[points[0][i].y * prevcloud->width + points[0][i].x];
+        // pcl::PointXYZ nextp = cloud->points[points[1][i].y * cloud->width + points[1][i].x];
+        pcl::PointXYZ prevp = trimmedmean(prevcloud, points[0][i]);
+        pcl::PointXYZ nextp = trimmedmean(cloud, points[1][i]);
         if(isnan(nextp.x)
            || isnan(nextp.y)
            || isnan(nextp.z)
@@ -185,7 +218,7 @@ namespace jsk_pcl_ros
         flow_result.velocity.y = nextp.y - prevp.y;
         flow_result.velocity.z = nextp.z - prevp.z;
         flows_result_msg.flows.push_back(flow_result);
-        std::cout << "2D flow : " << points[1][i].x - points[0][i].x << " " << points[1][i].y - points[0][i].y << std::endl;
+        std::cout << "2D flow : " << (int)points[1][i].x - (int)points[0][i].x << " " << (int)points[1][i].y - (int)points[0][i].y << std::endl;
         std::cout << "3D flow : " << flow_result.velocity.x << " " << flow_result.velocity.y << " " << flow_result.velocity.z << std::endl;
       }
     nextImg.copyTo(prevImg);

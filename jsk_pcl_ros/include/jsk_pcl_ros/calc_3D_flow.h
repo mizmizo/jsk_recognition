@@ -71,6 +71,9 @@ namespace jsk_pcl_ros
     virtual void onInit();
     virtual void subscribe();
     virtual void unsubscribe();
+    virtual pcl::PointXYZ trimmedmean(
+      const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+      cv::Point2f point);
     virtual void calc3Dflow(
       const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
       const sensor_msgs::Image::ConstPtr& image_msg,
