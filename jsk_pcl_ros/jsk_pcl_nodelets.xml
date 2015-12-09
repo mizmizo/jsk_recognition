@@ -150,6 +150,10 @@
          type="jsk_pcl_ros::AddColorFromImage"
          base_class_type="nodelet::Nodelet">
   </class>
+  <class name="jsk_pcl/Calc3DFlow"
+         type="jsk_pcl_ros::Calc3DFlow"
+         base_class_type="nodelet::Nodelet">
+  </class>
   <class name="jsk_pcl/SupervoxelSegmentation"
          type="jsk_pcl_ros::SupervoxelSegmentation"
          base_class_type="nodelet::Nodelet">

@@ -52,6 +52,14 @@ add_message_files(
   WeightedPoseArray.msg
   ContactSensor.msg
   ContactSensorArray.msg
+  Point2D.msg
+  Vector2.msg
+  Flow2D.msg
+  Flow2DArray.msg
+  Flow2DArrayStamped.msg
+  Flow3D.msg
+  Flow3DArray.msg
+  Flow3DArrayStamped.msg
   )
 
 generate_messages(
