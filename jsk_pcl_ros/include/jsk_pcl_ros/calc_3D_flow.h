@@ -2,7 +2,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2014, JSK Lab
+ *  Copyright (c) 2015, JSK Lab
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -73,13 +73,14 @@ namespace jsk_pcl_ros
     virtual void unsubscribe();
     virtual pcl::PointXYZ trimmedmean(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-      cv::Point2f point);
+      cv::Point2i point);
     virtual void calc3Dflow(
       const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
       const sensor_msgs::Image::ConstPtr& image_msg,
       const sensor_msgs::CameraInfo::ConstPtr& info_msg);
 
     bool approximate_sync_;
+    bool publish_marker_;
     int _maxCorners;
     double _qualityLevel;
     double _minDistance;
@@ -95,6 +96,7 @@ namespace jsk_pcl_ros
     ros::Publisher pub_;
     ros::Publisher image_pub_;
     ros::Publisher result_pub_;
+    ros::Publisher vis_pub_;
     cv::Mat prevImg;
     cv::Mat flow;
     std::vector<cv::Point2f> points[2];

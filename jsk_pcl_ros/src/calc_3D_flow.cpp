@@ -2,7 +2,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2014, JSK Lab
+ *  Copyright (c) 2015, JSK Lab
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -40,13 +40,12 @@
 #include <ros/names.h>
 #include <jsk_topic_tools/log_utils.h>
 #include <sensor_msgs/fill_image.h>
-#include <jsk_recognition_msgs/Flow2D.h>
-#include <jsk_recognition_msgs/Flow2DArrayStamped.h>
 #include <jsk_recognition_msgs/Flow3D.h>
 #include <jsk_recognition_msgs/Flow3DArrayStamped.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/subscriber_filter.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <visualization_msgs/Marker.h>
 #include <cv.hpp>
 #include <stdlib.h>
 #include <math.h>
@@ -65,10 +64,13 @@ namespace jsk_pcl_ros
     pnh_->param("winSize", _winSize, 20);
     pnh_->param("maxLevel", _maxLevel, 5);
     pnh_->param("approximate_sync", approximate_sync_, true);
+    pnh_->param("publish_marker", publish_marker_, true);
     result_pub_ = advertise<jsk_recognition_msgs::Flow3DArrayStamped>(
       *pnh_, "output/flow", 1);
     image_pub_ = advertise<sensor_msgs::Image>(
       *pnh_, "output/image", 1);
+    if(publish_marker_)
+      vis_pub_ = advertise<visualization_msgs::Marker>(*pnh_, "output/visualized_flow", 1);
 
   }
 
@@ -97,19 +99,19 @@ namespace jsk_pcl_ros
     sub_info_.unsubscribe();
     sub_image_.unsubscribe();
   }
-  
+
   pcl::PointXYZ Calc3DFlow::trimmedmean(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-    cv::Point2f point)
+    cv::Point2i point)
   {
     std::vector<float> tmp_x,tmp_y,tmp_z;
     for(int i = -1; i < 2; i++)
       {
         for(int j = -1;j < 2; j++)
           {
-            tmp_x.push_back(cloud->points[((int)point.y + i) * cloud->width + (int)point.x + j].x);
-            tmp_y.push_back(cloud->points[((int)point.y + i) * cloud->width + (int)point.x + j].y);
-            tmp_z.push_back(cloud->points[((int)point.y + i) * cloud->width + (int)point.x + j].z);
+            tmp_x.push_back(cloud->points[(point.y + i) * cloud->width + point.x + j].x);
+            tmp_y.push_back(cloud->points[(point.y + i) * cloud->width + point.x + j].y);
+            tmp_z.push_back(cloud->points[(point.y + i) * cloud->width + point.x + j].z);
           }
       }
     std::sort(tmp_x.begin(), tmp_x.end());
@@ -184,23 +186,44 @@ namespace jsk_pcl_ros
     jsk_recognition_msgs::Flow3DArrayStamped flows_result_msg;
     flows_result_msg.header = image_msg->header;
 
+    visualization_msgs::Marker marker;
+    if(publish_marker_){
+      marker.header = image_msg->header;
+      marker.ns = "visualized_flow";
+      marker.id = 0;
+      marker.type = visualization_msgs::Marker::LINE_LIST;
+      marker.action = visualization_msgs::Marker::ADD;
+      marker.pose.position.x = 0;
+      marker.pose.position.y = 0;
+      marker.pose.position.z = 0;
+      marker.pose.orientation.x = 0;
+      marker.pose.orientation.y = 0;
+      marker.pose.orientation.z = 0;
+      marker.pose.orientation.w = 1.0;
+      marker.color.a = 1.0;
+      marker.color.r = 1.0;
+      marker.color.g = 0.0;
+      marker.color.b = 0.0;
+      marker.scale.x = 0.02;
+    }
+
     size_t i;
     for(i = 0; i < features_found.size(); i++)
       {
+        cv::Point2i tmp_prevp = points[0][i];
+        cv::Point2i tmp_nextp = points[1][i];
         if(!features_found[i]
-           || points[0][i].x >= prevcloud->width
-           || points[0][i].y >= prevcloud->height
-           || points[1][i].x >= cloud->width
-           || points[1][i].y >= cloud->height
-           || points[0][i].x < 1
-           || points[0][i].y < 1
-           || points[1][i].x < 1
-           || points[1][i].y < 1 )
+           || tmp_prevp.x >= prevcloud->width - 1
+           || tmp_prevp.y >= prevcloud->height - 1
+           || tmp_nextp.x >= cloud->width - 1
+           || tmp_nextp.y >= cloud->height - 1
+           || tmp_prevp.x < 2
+           || tmp_prevp.y < 2
+           || tmp_nextp.x < 2
+           || tmp_nextp.y < 2 )
           continue;
-        // pcl::PointXYZ prevp = prevcloud->points[points[0][i].y * prevcloud->width + points[0][i].x];
-        // pcl::PointXYZ nextp = cloud->points[points[1][i].y * cloud->width + points[1][i].x];
-        pcl::PointXYZ prevp = trimmedmean(prevcloud, points[0][i]);
-        pcl::PointXYZ nextp = trimmedmean(cloud, points[1][i]);
+        pcl::PointXYZ prevp = trimmedmean(prevcloud, tmp_prevp);
+        pcl::PointXYZ nextp = trimmedmean(cloud, tmp_nextp);
         if(isnan(nextp.x)
            || isnan(nextp.y)
            || isnan(nextp.z)
@@ -218,8 +241,15 @@ namespace jsk_pcl_ros
         flow_result.velocity.y = nextp.y - prevp.y;
         flow_result.velocity.z = nextp.z - prevp.z;
         flows_result_msg.flows.push_back(flow_result);
-        std::cout << "2D flow : " << (int)points[1][i].x - (int)points[0][i].x << " " << (int)points[1][i].y - (int)points[0][i].y << std::endl;
-        std::cout << "3D flow : " << flow_result.velocity.x << " " << flow_result.velocity.y << " " << flow_result.velocity.z << std::endl;
+
+        if(publish_marker_){
+          geometry_msgs::Point start_point;
+          start_point.x = prevp.x;
+          start_point.y = prevp.y;
+          start_point.z = prevp.z;
+          marker.points.push_back(start_point);
+          marker.points.push_back(flow_result.point);
+        }
       }
     nextImg.copyTo(prevImg);
     std::swap(tmp_points, points[0]);
@@ -228,7 +258,8 @@ namespace jsk_pcl_ros
     sensor_msgs::ImagePtr flow_image_msg = flow_ptr->toImageMsg();
     image_pub_.publish(flow_image_msg);
     result_pub_.publish(flows_result_msg);
-    std::cout << std::endl;
+    if(publish_marker_)
+      vis_pub_.publish(marker);
   }
 }
 
