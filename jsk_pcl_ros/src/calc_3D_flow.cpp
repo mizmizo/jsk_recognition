@@ -183,9 +183,15 @@ namespace jsk_pcl_ros
     cv::calcOpticalFlowPyrLK(prevImg, nextImg, points[0], points[1], features_found, feature_errors, cv::Size(_winSize, _winSize),
                              _maxLevel, termcrit, 0, 0.001);
     //cv::OPTFLOW_USE_INITIAL_FLOW); 
+    std::vector<uchar> back_features_found;
+    std::vector<float> back_feature_errors;
+    std::vector<cv::Point2f> back_points;
+    cv::calcOpticalFlowPyrLK(nextImg, prevImg, points[1], back_points, back_features_found, back_feature_errors,
+                             cv::Size(_winSize, _winSize), _maxLevel, termcrit, 0, 0.001);
+
+
     jsk_recognition_msgs::Flow3DArrayStamped flows_result_msg;
     flows_result_msg.header = image_msg->header;
-
     visualization_msgs::Marker marker;
     if(publish_marker_){
       marker.header = image_msg->header;
@@ -213,6 +219,7 @@ namespace jsk_pcl_ros
         cv::Point2i tmp_prevp = points[0][i];
         cv::Point2i tmp_nextp = points[1][i];
         if(!features_found[i]
+           ||!back_features_found[i]
            || tmp_prevp.x >= prevcloud->width - 1
            || tmp_prevp.y >= prevcloud->height - 1
            || tmp_nextp.x >= cloud->width - 1
@@ -222,6 +229,16 @@ namespace jsk_pcl_ros
            || tmp_nextp.x < 2
            || tmp_nextp.y < 2 )
           continue;
+
+        double theta = ((points[1][i].x - points[0][i].x) * (points[1][i].x - back_points[i].x)
+                        + (points[1][i].y - points[0][i].y) * (points[1][i].y - back_points[i].y))
+          / (sqrt((points[1][i].x - points[0][i].x) * (points[1][i].x - points[0][i].x)
+                  + (points[1][i].y - points[0][i].y) * (points[1][i].y - points[0][i].y))
+             * sqrt((points[1][i].x - back_points[i].x) * (points[1][i].x - back_points[i].x)
+                    + (points[1][i].y - back_points[i].y) * (points[1][i].y - back_points[i].y)));
+        if(theta < 0.8)
+          continue;
+
         pcl::PointXYZ prevp = trimmedmean(prevcloud, tmp_prevp);
         pcl::PointXYZ nextp = trimmedmean(cloud, tmp_nextp);
         if(isnan(nextp.x)
@@ -230,16 +247,22 @@ namespace jsk_pcl_ros
            || isnan(prevp.x)
            || isnan(prevp.y)
            || isnan(prevp.z)) continue;
-        cv::circle(flow, points[1][i], 5, cv::Scalar(255,0,0), 2, 8);
-        cv::line(flow, points[1][i], points[0][i], cv::Scalar(255,0,0), 2, 8, 0);
-        jsk_recognition_msgs::Flow3D flow_result;
 
+        jsk_recognition_msgs::Flow3D flow_result;
         flow_result.point.x = nextp.x;
         flow_result.point.y = nextp.y;
         flow_result.point.z = nextp.z;
         flow_result.velocity.x = nextp.x - prevp.x;
         flow_result.velocity.y = nextp.y - prevp.y;
         flow_result.velocity.z = nextp.z - prevp.z;
+
+        if(fabs(flow_result.velocity.x) > 0.5
+           ||fabs(flow_result.velocity.y) > 0.5
+           ||fabs(flow_result.velocity.z) > 0.5)
+          continue;
+
+        cv::circle(flow, points[1][i], 5, cv::Scalar(255,0,0), 2, 8);
+        cv::line(flow, points[1][i], points[0][i], cv::Scalar(255,0,0), 2, 8, 0);
         flows_result_msg.flows.push_back(flow_result);
 
         if(publish_marker_){
