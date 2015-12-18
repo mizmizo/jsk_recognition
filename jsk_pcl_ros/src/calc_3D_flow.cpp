@@ -78,25 +78,23 @@ namespace jsk_pcl_ros
   {
     sub_cloud_.subscribe(*pnh_, "input", 1);
     sub_image_.subscribe(*pnh_, "input/image", 1);
-    sub_info_.subscribe(*pnh_, "input/camera_info", 1);
     if (approximate_sync_) {
       async_ = boost::make_shared<message_filters::Synchronizer<ApproximateSyncPolicy> >(100);
-      async_->connectInput(sub_cloud_, sub_image_, sub_info_);
+      async_->connectInput(sub_cloud_, sub_image_);
       async_->registerCallback(boost::bind(&Calc3DFlow::calc3Dflow,
-                                           this, _1, _2, _3));
+                                           this, _1, _2));
     }
     else {
       sync_ = boost::make_shared<message_filters::Synchronizer<SyncPolicy> >(100);
-      sync_->connectInput(sub_cloud_, sub_image_, sub_info_);
+      sync_->connectInput(sub_cloud_, sub_image_);
       sync_->registerCallback(boost::bind(&Calc3DFlow::calc3Dflow,
-                                          this, _1, _2, _3));
+                                          this, _1, _2));
     }
   }
 
   void Calc3DFlow::unsubscribe()
   {
     sub_cloud_.unsubscribe();
-    sub_info_.unsubscribe();
     sub_image_.unsubscribe();
   }
 
@@ -133,15 +131,12 @@ namespace jsk_pcl_ros
 
   void Calc3DFlow::calc3Dflow(
     const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
-    const sensor_msgs::Image::ConstPtr& image_msg,
-    const sensor_msgs::CameraInfo::ConstPtr& info_msg)
+    const sensor_msgs::Image::ConstPtr& image_msg)
   {
-    if ((cloud_msg->header.frame_id != image_msg->header.frame_id) ||
-        (cloud_msg->header.frame_id != info_msg->header.frame_id)) {
-      JSK_NODELET_FATAL("frame_id is not collect: [%s, %s, %s",
-                    cloud_msg->header.frame_id.c_str(),
-                    image_msg->header.frame_id.c_str(),
-                    info_msg->header.frame_id.c_str());
+    if (cloud_msg->header.frame_id != image_msg->header.frame_id){
+      JSK_NODELET_FATAL("frame_id is not collect: [%s, %s",
+                        cloud_msg->header.frame_id.c_str(),
+                        image_msg->header.frame_id.c_str());
       return;
     }
     vital_checker_->poke();

@@ -48,7 +48,6 @@
 
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
-#include <sensor_msgs/CameraInfo.h>
 #include <cv_bridge/cv_bridge.h>
 
 namespace jsk_pcl_ros
@@ -58,13 +57,11 @@ namespace jsk_pcl_ros
   public:
     typedef message_filters::sync_policies::ExactTime<
     sensor_msgs::PointCloud2,
-    sensor_msgs::Image,
-    sensor_msgs::CameraInfo
+    sensor_msgs::Image
     >  SyncPolicy;
     typedef message_filters::sync_policies::ApproximateTime<
     sensor_msgs::PointCloud2,
-    sensor_msgs::Image,
-    sensor_msgs::CameraInfo
+    sensor_msgs::Image
     >  ApproximateSyncPolicy;
     Calc3DFlow(): DiagnosticNodelet("Calc3DFlow") { }
   protected:
@@ -76,9 +73,7 @@ namespace jsk_pcl_ros
       cv::Point2i point);
     virtual void calc3Dflow(
       const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
-      const sensor_msgs::Image::ConstPtr& image_msg,
-      const sensor_msgs::CameraInfo::ConstPtr& info_msg);
-
+      const sensor_msgs::Image::ConstPtr& image_msg);
     bool approximate_sync_;
     bool publish_marker_;
     int _maxCorners;
@@ -90,7 +85,6 @@ namespace jsk_pcl_ros
     int _maxLevel;
     message_filters::Subscriber<sensor_msgs::PointCloud2> sub_cloud_;
     message_filters::Subscriber<sensor_msgs::Image> sub_image_;
-    message_filters::Subscriber<sensor_msgs::CameraInfo> sub_info_;
     boost::shared_ptr<message_filters::Synchronizer<SyncPolicy> >sync_;
     boost::shared_ptr<message_filters::Synchronizer<ApproximateSyncPolicy> >async_;
     ros::Publisher pub_;
