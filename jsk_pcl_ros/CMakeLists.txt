@@ -354,6 +354,10 @@ jsk_pcl_util_nodelet_deprecated(src/plane_concatenator_nodelet.cpp
   "jsk_pcl/PlaneConcatenator" "plane_concatenator")
 jsk_pcl_nodelet(src/add_color_from_image_nodelet.cpp
   "jsk_pcl/AddColorFromImage" "add_color_from_image")
+jsk_pcl_nodelet(src/calc_3D_flow.cpp
+  "jsk_pcl/Calc3DFlow" "calc_3D_flow")
+jsk_pcl_nodelet(src/flow_segmentation_nodelet.cpp
+  "jsk_pcl/FlowSegmentation" "flow_segmentation")
 jsk_pcl_nodelet(src/torus_finder_nodelet.cpp "jsk_pcl/TorusFinder" "torus_finder")
 jsk_pcl_nodelet(src/mask_image_filter_nodelet.cpp
   "jsk_pcl/MaskImageFilter" "mask_image_filter")
