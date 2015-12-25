@@ -71,48 +71,82 @@ namespace jsk_pcl_ros
   
   void FlowSegmentation::subscribe()
   {
-    sub_box_.subscribe(*pnh_, "box", 1);
-    sub_flow_.subscribe(*pnh_, "flow", 10);
-    sub_only_flow_ = pnh_->subscribe("flow", 5, &FlowSegmentation::flow_extract, this);
-    sync_ = boost::make_shared<message_filters::Synchronizer<SyncPolicy> >(100);
-    sync_->connectInput(sub_box_, sub_flow_);
-    sync_->registerCallback(boost::bind(&FlowSegmentation::box_extract, this, _1, _2));
+    sub_box_ = pnh_->subscribe("box", 1, &FlowSegmentation::box_extract, this);
+    sub_flow_ = pnh_->subscribe("flow", 5, &FlowSegmentation::flow_extract, this);
   }
   
   void FlowSegmentation::unsubscribe()
   {
-    sub_box_.unsubscribe();
-    sub_flow_.unsubscribe();
-    //    sub_only_flow_.unsubscribe();
+    sub_box_.shutdown();
+    sub_flow_.shutdown();
+  }
+
+  bool FlowSegmentation::comparebox(const jsk_recognition_msgs::BoundingBoxConstPtr& input_box,
+                                    uint* label) //TODO
+  {
+    if(){
+
+      return true;
+    } else {
+
+
+      return false;
+    }
+
+  }
+
+
+  void FlowSegmentation::box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr& box)
+  {
+    vital_checker_->poke();
+    if(labeled_boxes.boxes.size() > 0)
+      {
+        //storebox(unlabeled_boxes, box);
+        size_t i,k;
+        k = 0;
+        std::vector<jsk_recognition_msgs::BoundingBox> tmp_boxes;
+        tmp_boxes.resize(box->boxes.size() + labeled_boxes.size());
+        for(i = 0; i < box->boxes.size(); i++){
+            jsk_recognition_msgs::BoundingBox input_box;
+            input_box = box.boxes[i];
+            input_box.header = box->header;
+            uint label;
+            if(comparebox(input_box, &label)){ //合致するboxのlabel
+              input_box.label = label;
+              if(tmp_boxes.at(label).empty()){
+                tmp_boxes.at(label) = input_box;
+              } else {
+                tmp_boxes.at(label).label = box->boxes.size() + 1;
+              }
+            } else {
+              tmp_boxes.at(labeled_boxes.size() + k) = input_box;
+              k++;
+            }
+        }
+        for(i = 0; i < k; i++){
+          unlabeled_boxes.push_back(tmp_boxes.at(labeled_boxes.size() + i));
+        }
+        for(i = 0; i < labeled_boxes.size(); i++){
+          if(tmp_boxes.at(i).label == i){
+            labeled_box.at(i) = tmp_boxes.at(i);
+          }
+        }
+      } else {
+      unlabeled_boxes = box;
+    }
   }
   
-  void FlowSegmentation::box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box,
-                   const jsk_recognition_msgs::Flow3DArrayStampedConstPtr &flow)
-    
+  
+  
+  void FlowSegmentation::flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr& flow)
   {
-    // vital_checker_->poke();
-    // if(!(labeled_boxes.boxes.size() > 0))
-    //   {
-    //     unlabeled_boxes = box;
-    //   } else {}
-    //todo
-    std::cout << "box_cb" << std::endl;
-  }
-  
-  
-  
-  void FlowSegmentation::flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr &flow)
-  {
-    /*    if(!(labeled_boxes.boxes.size() > 0)) return;
+       if(!(labeled_boxes.boxes.size() > 0)) return;
           flow_lebeling(); //todo
     check_flow();
     compute_boundingbox_vel();
-    */
-    std::cout << "flow_cb" << std::endl;
   }
   
 }
 
-PLUGINLIB_EXPORT_CLASS (jsk_pcl_ros::FlowSegmentation,
-                        nodelet::Nodelet);
+PLUGINLIB_EXPORT_CLASS (jsk_pcl_ros::FlowSegmentation,nodelet::Nodelet);
 
