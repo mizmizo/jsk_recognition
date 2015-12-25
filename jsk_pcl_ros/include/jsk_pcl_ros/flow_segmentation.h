@@ -67,12 +67,8 @@ namespace jsk_pcl_ros
   {
   public:
     FlowSegmentation(): DiagnosticNodelet("FlowSegmentation") { }
-    typedef message_filters::sync_policies::ExactTime<
-    jsk_recognition_msgs::BoundingBoxArray,
-    jsk_recognition_msgs::Flow3DArrayStamped > SyncPolicy;
     virtual void onInit();
-    virtual void box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box,
-                             const jsk_recognition_msgs::Flow3DArrayStampedConstPtr &flow);
+    virtual void box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box);
     virtual void flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr &flow);
   protected:
     virtual void subscribe();
@@ -87,19 +83,16 @@ namespace jsk_pcl_ros
         return ((uint32_t)r<<16 | (uint32_t)g<<8 | (uint32_t)b);
     }
 
-    message_filters::Subscriber<jsk_recognition_msgs::BoundingBoxArray> sub_box_;
-    message_filters::Subscriber<jsk_recognition_msgs::Flow3DArrayStamped> sub_flow_;
-    //    message_filters::Subscriber<jsk_recognition_msgs::Flow3DArrayStamped> sub_only_flow_;
-    ros::Subscriber sub_only_flow_;
+    ros::Subscriber sub_box_;
+    ros::Subscriber sub_flow_;
     boost::mutex mutex_;
-    boost::shared_ptr<message_filters::Synchronizer<SyncPolicy> >sync_;
     ros::Publisher box_pub_;
     tf::TransformBroadcaster br_;
     std::string tf_prefix_;
     bool publish_tf_;
     Counter cluster_counter_;
-    jsk_recognition_msgs::BoundingBoxArrayPtr unlabeled_boxes;
-    std::vector<jsk_recognition_msgs::BoundingBoxArray> labeled_boxes;
+    std::voctor<jsk_recognition_msgs::BoundingBox> unlabeled_boxes;
+    std::vector<jsk_recognition_msgs::BoundingBox> labeled_boxes;
   };
 
 }
