@@ -80,46 +80,52 @@ namespace jsk_pcl_ros
     sub_box_.shutdown();
     sub_flow_.shutdown();
   }
-
-  bool FlowSegmentation::comparebox(const jsk_recognition_msgs::BoundingBoxConstPtr& input_box,
-                                    uint* label) //TODO
+  
+  bool FlowSegmentation::comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
+                                      uint& label)
   {
-    if(){
+    size_t i;
+    for(i = 0; i < labeled_boxes.size(); i++){
+      bool box_fit;
 
-      return true;
-    } else {
 
-
+      if(1){ //input_box == labeled_boxes.at(i) ? ひとつだけ　２つfitならfalse
+        label = i;
+        break;
+      }
+    } 
+    if(label >= 0){
       return false;
-    }
-
+    } else {
+      return true;
+        }    
   }
-
 
   void FlowSegmentation::box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr& box)
   {
     vital_checker_->poke();
-    if(labeled_boxes.boxes.size() > 0)
+    boost::mutex::scoped_lock lock(mutex_);
+    if(labeled_boxes.size() > 0)
       {
-        //storebox(unlabeled_boxes, box);
         size_t i,k;
         k = 0;
         std::vector<jsk_recognition_msgs::BoundingBox> tmp_boxes;
         tmp_boxes.resize(box->boxes.size() + labeled_boxes.size());
         for(i = 0; i < box->boxes.size(); i++){
             jsk_recognition_msgs::BoundingBox input_box;
-            input_box = box.boxes[i];
+            input_box = box->boxes[i];
             input_box.header = box->header;
             uint label;
-            if(comparebox(input_box, &label)){ //合致するboxのlabel
+            if(FlowSegmentation::comparebox(input_box, label)){ //合致するboxのlabel
               input_box.label = label;
-              if(tmp_boxes.at(label).empty()){
+              if(tmp_boxes.at(label).header.stamp != box->header.stamp){ //labelが空
                 tmp_boxes.at(label) = input_box;
               } else {
-                tmp_boxes.at(label).label = box->boxes.size() + 1;
+                tmp_boxes.at(labeled_boxes.size() + k) = input_box; //label split
+                k++;
               }
             } else {
-              tmp_boxes.at(labeled_boxes.size() + k) = input_box;
+              tmp_boxes.at(labeled_boxes.size() + k) = input_box; //new label
               k++;
             }
         }
@@ -128,22 +134,26 @@ namespace jsk_pcl_ros
         }
         for(i = 0; i < labeled_boxes.size(); i++){
           if(tmp_boxes.at(i).label == i){
-            labeled_box.at(i) = tmp_boxes.at(i);
+            labeled_boxes.at(i) = tmp_boxes.at(i);
           }
         }
       } else {
-      unlabeled_boxes = box;
+      size_t i;
+      for(i = 0; i < box->boxes.size(); i++){
+        unlabeled_boxes.at(i) = box->boxes[i];
+      }
     }
   }
-  
+
   
   
   void FlowSegmentation::flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr& flow)
   {
-       if(!(labeled_boxes.boxes.size() > 0)) return;
-          flow_lebeling(); //todo
-    check_flow();
-    compute_boundingbox_vel();
+    boost::mutex::scoped_lock lock(mutex_);
+    //    if(!(labeled_boxes.boxes.size() > 0)) return;
+    //       flow_lebeling(); //todo
+    // check_flow();
+    // compute_boundingbox_vel();
   }
   
 }
