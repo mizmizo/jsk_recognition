@@ -71,6 +71,8 @@ namespace jsk_pcl_ros
     virtual bool comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
                             uint& label);
     virtual std::vector<cv::Point3d> getVertices(const jsk_recognition_msgs::BoundingBox& box);
+    virtual bool comparevertices(const cv::Point3d& vertices,
+                                         const std::vector<cv::Point3d>& compared_vertices);
     virtual void box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box);
     virtual void flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr &flow);
   protected:

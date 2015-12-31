@@ -84,20 +84,33 @@ namespace jsk_pcl_ros
   bool FlowSegmentation::comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
                                       uint& label)
   {
-    size_t i;
+    size_t i,j;
+    bool box_fit = false;
+    std::vector<cv::Point3d> input_vertices = getVertices(input_box);
     for(i = 0; i < labeled_boxes.size(); i++){
-      bool box_fit;
-
-
-      if(1){ //input_box == labeled_boxes.at(i) ? ひとつだけ　２つfitならfalse
-        label = i;
-        break;
+      std::vector<cv::Point3d> compared_vertices = getVertices(labeled_boxes.at(i));
+      bool fit_candidate;
+      for(j = 0; j < 8; j++){
+        if(comparevertices(input_vertices.at(j), compared_vertices)
+           || comparevertices(compared_vertices.at(j), input_vertices)){
+          fit_candidate = true;
+          break;
+        }
       }
-    } 
-    if(label >= 0){
-      return false;
-    } else {
+      if(fit_candidate){
+        if(box_fit != true){
+          box_fit = true;
+          label = i;
+        } else {
+          box_fit = false;
+          break;
+        }
+      }
+    }
+    if(box_fit){
       return true;
+    } else {
+      return false;
         }    
   }
 
@@ -140,6 +153,38 @@ namespace jsk_pcl_ros
     ret.push_back(cv_h);
     return ret;
   }
+
+  bool FlowSegmentation::comparevertices(const cv::Point3d& vertice,
+                                         const std::vector<cv::Point3d>& compared_vertices)
+  {
+    Eigen::Vector3f v_target(vertice.x - compared_vertices.at(0).x,
+                             vertice.y - compared_vertices.at(0).y,
+                             vertice.z - compared_vertices.at(0).z);
+    Eigen::Vector3f v_x(compared_vertices.at(1).x - compared_vertices.at(0).x,
+                        compared_vertices.at(1).y - compared_vertices.at(0).y,
+                        compared_vertices.at(1).z - compared_vertices.at(0).z);
+    Eigen::Vector3f v_y(compared_vertices.at(3).x - compared_vertices.at(0).x,
+                        compared_vertices.at(3).y - compared_vertices.at(0).y,
+                        compared_vertices.at(3).z - compared_vertices.at(0).z);
+    Eigen::Vector3f v_z(compared_vertices.at(4).x - compared_vertices.at(0).x,
+                        compared_vertices.at(4).y - compared_vertices.at(0).y,
+                        compared_vertices.at(4).z - compared_vertices.at(0).z);
+    
+    float test = (v_target.dot(v_x) / (v_x.norm() * v_x.norm()));
+    if((v_target.dot(v_x) / (v_x.norm() * v_x.norm())) > 0.0 &&
+       (v_target.dot(v_x) / (v_x.norm() * v_x.norm())) < 1.0 &&
+       (v_target.dot(v_y) / (v_y.norm() * v_y.norm())) > 0.0 &&
+       (v_target.dot(v_y) / (v_y.norm() * v_y.norm())) < 1.0 &&
+       (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) > 0.0 &&
+       (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) < 1.0)
+      {
+        return true;
+      } else {
+      return false;
+    }
+  }
+  
+
 
   void FlowSegmentation::box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr& box)
   {
@@ -190,8 +235,9 @@ namespace jsk_pcl_ros
   void FlowSegmentation::flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr& flow)
   {
     boost::mutex::scoped_lock lock(mutex_);
-    //    if(!(labeled_boxes.boxes.size() > 0)) return;
+        if(!(labeled_boxes.size() > 0)) return;
     //       flow_lebeling(); //todo
+
     // check_flow();
     // compute_boundingbox_vel();
   }
