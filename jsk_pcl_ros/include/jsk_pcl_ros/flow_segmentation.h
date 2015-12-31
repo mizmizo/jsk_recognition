@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <ros/names.h>
-
+#include <cv_bridge/cv_bridge.h>
 #include "jsk_recognition_msgs/ClusterPointIndices.h"
 #include "jsk_recognition_msgs/PolygonArray.h"
 #include "jsk_recognition_msgs/ModelCoefficientsArray.h"
@@ -70,6 +70,7 @@ namespace jsk_pcl_ros
     virtual void onInit();
     virtual bool comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
                             uint& label);
+    virtual std::vector<cv::Point3d> getVertices(const jsk_recognition_msgs::BoundingBox& box);
     virtual void box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box);
     virtual void flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr &flow);
   protected:

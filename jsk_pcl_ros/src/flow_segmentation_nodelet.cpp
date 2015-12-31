@@ -101,6 +101,46 @@ namespace jsk_pcl_ros
         }    
   }
 
+  std::vector<cv::Point3d> FlowSegmentation::getVertices(const jsk_recognition_msgs::BoundingBox& box)
+  {
+    Eigen::Affine3f pose;
+    tf::poseMsgToEigen(box.pose, pose);
+    Eigen::Vector3f local_a(box.dimensions.x / 2, box.dimensions.y / 2, box.dimensions.z / 2);
+    Eigen::Vector3f local_b(-box.dimensions.x / 2, box.dimensions.y / 2, box.dimensions.z / 2);
+    Eigen::Vector3f local_c(-box.dimensions.x / 2, -box.dimensions.y / 2, box.dimensions.z / 2);
+    Eigen::Vector3f local_d(box.dimensions.x / 2, -box.dimensions.y / 2, box.dimensions.z / 2);
+    Eigen::Vector3f local_e(box.dimensions.x / 2, box.dimensions.y / 2, -box.dimensions.z / 2);
+    Eigen::Vector3f local_f(-box.dimensions.x / 2, box.dimensions.y / 2, -box.dimensions.z / 2);
+    Eigen::Vector3f local_g(-box.dimensions.x / 2, -box.dimensions.y / 2, -box.dimensions.z / 2);
+    Eigen::Vector3f local_h(box.dimensions.x / 2, -box.dimensions.y / 2, -box.dimensions.z / 2);
+    Eigen::Vector3f a = pose * local_a;
+    Eigen::Vector3f b = pose * local_b;
+    Eigen::Vector3f c = pose * local_c;
+    Eigen::Vector3f d = pose * local_d;
+    Eigen::Vector3f e = pose * local_e;
+    Eigen::Vector3f f = pose * local_f;
+    Eigen::Vector3f g = pose * local_g;
+    Eigen::Vector3f h = pose * local_h;
+    cv::Point3d cv_a(a[0], a[1], a[2]);
+    cv::Point3d cv_b(b[0], b[1], b[2]);
+    cv::Point3d cv_c(c[0], c[1], c[2]);
+    cv::Point3d cv_d(d[0], d[1], d[2]);
+    cv::Point3d cv_e(e[0], e[1], e[2]);
+    cv::Point3d cv_f(f[0], f[1], f[2]);
+    cv::Point3d cv_g(g[0], g[1], g[2]);
+    cv::Point3d cv_h(h[0], h[1], h[2]);
+    std::vector<cv::Point3d> ret;
+    ret.push_back(cv_a);
+    ret.push_back(cv_b);
+    ret.push_back(cv_c);
+    ret.push_back(cv_d);
+    ret.push_back(cv_e);
+    ret.push_back(cv_f);
+    ret.push_back(cv_g);
+    ret.push_back(cv_h);
+    return ret;
+  }
+
   void FlowSegmentation::box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr& box)
   {
     vital_checker_->poke();
@@ -116,9 +156,9 @@ namespace jsk_pcl_ros
             input_box = box->boxes[i];
             input_box.header = box->header;
             uint label;
-            if(FlowSegmentation::comparebox(input_box, label)){ //合致するboxのlabel
+            if(comparebox(input_box, label)){ //fit-box label
               input_box.label = label;
-              if(tmp_boxes.at(label).header.stamp != box->header.stamp){ //labelが空
+              if(tmp_boxes.at(label).header.stamp != box->header.stamp){ //empty label
                 tmp_boxes.at(label) = input_box;
               } else {
                 tmp_boxes.at(labeled_boxes.size() + k) = input_box; //label split
