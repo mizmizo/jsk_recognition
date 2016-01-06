@@ -87,10 +87,8 @@ namespace jsk_pcl_ros
     size_t i,j;
     bool box_fit = false;
     std::vector<cv::Point3d> input_vertices = getVertices(input_box);
-    //    std::cout << "input_vertices " << input_vertices << std::endl;
     for(i = 0; i < labeled_boxes.size(); i++){
       std::vector<cv::Point3d> compared_vertices = getVertices(labeled_boxes.at(i));
-      //    std::cout << "compared_vertices " << compared_vertices << std::endl;
       bool fit_candidate(false);
       for(j = 0; j < 8; j++){
         if(comparevertices(input_vertices.at(j), labeled_boxes.at(i))
@@ -110,7 +108,6 @@ namespace jsk_pcl_ros
         }
       }
     }
-    std::cout << "box_fit " << box_fit << std::endl;
     if(box_fit){
       return true;
     } else {
@@ -174,21 +171,7 @@ namespace jsk_pcl_ros
     Eigen::Vector3f v_z((compared_vertices.at(4).x*100 - compared_vertices.at(0).x*100),
                         (compared_vertices.at(4).y*100 - compared_vertices.at(0).y*100),
                         (compared_vertices.at(4).z*100 - compared_vertices.at(0).z*100));
-    /*    Eigen::Vector3f v_target(vertice.x - compared_vertices.at(0).x,
-                             vertice.y - compared_vertices.at(0).y,
-                             vertice.z - compared_vertices.at(0).z);
-    Eigen::Vector3f v_x(compared_vertices.at(1).x - compared_vertices.at(0).x,
-                        compared_vertices.at(1).y - compared_vertices.at(0).y,
-                        compared_vertices.at(1).z - compared_vertices.at(0).z);
-    Eigen::Vector3f v_y(compared_vertices.at(3).x - compared_vertices.at(0).x,
-                        compared_vertices.at(3).y - compared_vertices.at(0).y,
-                        compared_vertices.at(3).z - compared_vertices.at(0).z);
-    Eigen::Vector3f v_z(compared_vertices.at(4).x - compared_vertices.at(0).x,
-                        compared_vertices.at(4).y - compared_vertices.at(0).y,
-                        compared_vertices.at(4).z - compared_vertices.at(0).z);*/
-    
-    //    float test = (v_target.dot(v_x) / (v_x.norm() * v_x.norm()));
-    //    std::cout << "test_dot " << test << std::endl;
+
     if(v_x.norm() == 0)std::cout << "nan!!!" << std::endl;
       if((v_target.dot(v_x) / (v_x.norm() * v_x.norm())) > 0.0 &&
        (v_target.dot(v_x) / (v_x.norm() * v_x.norm())) < 1.0 &&
@@ -197,10 +180,8 @@ namespace jsk_pcl_ros
        (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) > 0.0 &&
        (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) < 1.0)
       {
-        //    std::cout << "oclued true" << std::endl; 
         return true;
       } else {
-        //std::cout << "oclued false" << std::endl;
       return false;
     }
   }
@@ -209,51 +190,69 @@ namespace jsk_pcl_ros
   {
     vital_checker_->poke();
     boost::mutex::scoped_lock lock(mutex_);
-    std::cout << " " << std::endl;
+    std::cout << std::endl;
     std::cout << "box_extract" << std::endl;
+    size_t i;
     if(labeled_boxes.size() > 0)
       {
-        size_t i,j,k;
-        j = k = 0;
+        size_t j,k,l,m,count;
+        j = k = l = 0;
         uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
+        size_t boxes_size = labeled_boxes.size();
         std::vector<jsk_recognition_msgs::BoundingBox> tmp_boxes;
-        tmp_boxes.resize(box->boxes.size() + max_label);
-        std::cout << "test2" << std::endl;
+        tmp_boxes.resize(box->boxes.size() + boxes_size);
         for(i = 0; i < box->boxes.size(); i++){
             jsk_recognition_msgs::BoundingBox input_box;
+            std::cout << "test box " << i << std::endl;
             input_box = box->boxes[i];
             input_box.header = box->header;
             uint label;
-            std::cout << "test3 i:" << i << std::endl;
+
             if(comparebox(input_box, &label)){ //fit-box label
               std::cout << "label " << label << std::endl;
               input_box.label = label;
-              if(tmp_boxes.at(label).header.stamp != box->header.stamp){ //update label
-                tmp_boxes.at(label) = input_box;
+
+              if (l == 0){
+                std::cout << "update label " << label << std::endl;
+                tmp_boxes.at(l) = input_box;
+                l++;
               } else {
-                tmp_boxes.at(max_label + j) = input_box; //label split
-                tmp_boxes.at(max_label + j).label = max_label + j;
-                j++;
+                for(m = 0; m < l; m++){
+                  if(tmp_boxes.at(m).label == label){ //label split
+                    std::cout << "split label " << max_label+j+1  << std::endl;
+                    tmp_boxes.at(boxes_size + j) = input_box;
+                    tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
+                    j++;
+                    break;
+                  } else if(m == l - 1){ //update label
+                    std::cout << "update label " << label << std::endl;
+                    tmp_boxes.at(l) = input_box;
+                    l++;
+                    break;
+                  }
+                }
               }
             } else {
-              tmp_boxes.at(max_label + j) = input_box; //new label
-              tmp_boxes.at(max_label + j).label = max_label + j;
+
+              std::cout << "create label " << max_label+j+1 << std::endl;
+              tmp_boxes.at(boxes_size + j) = input_box; //new label
+              tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
               j++;
             }
         }
-        
-        for(i = 0; i < labeled_boxes.size(); i++){ //update boundingbox
-          if(tmp_boxes.at(labeled_boxes.at(i).label).header.stamp == box->header.stamp){
-            labeled_boxes.at(k) = tmp_boxes.at(labeled_boxes.at(i).label);
-            k++;
+        for(i = 0; i < boxes_size; i++){ //update boundingbox
+          for(m = 0; m < l; m++){
+            if(tmp_boxes.at(m).label == labeled_boxes.at(i).label){
+              labeled_boxes.at(k) = tmp_boxes.at(m);
+              k++;
+            }
           }
         }
         labeled_boxes.resize(k + j);
         for(i = 0; i < j; i++){
-          labeled_boxes.at(k + i) = tmp_boxes.at(max_label + i);
+          labeled_boxes.at(k + i) = tmp_boxes.at(boxes_size + i);
         }
       } else {
-      size_t i;
       for(i = 0; i < box->boxes.size(); i++){
         jsk_recognition_msgs::BoundingBox tmp_box;
         tmp_box = box->boxes[i];
@@ -261,6 +260,13 @@ namespace jsk_pcl_ros
         labeled_boxes.push_back(tmp_box);
       }
     }
+
+    //debug output
+    for(i = 0; i < labeled_boxes.size(); i++){
+      std::cout << labeled_boxes.at(i).label << " ";
+    }
+    std::cout << std::endl;
+
   }
 
   
@@ -269,9 +275,6 @@ namespace jsk_pcl_ros
   {
     boost::mutex::scoped_lock lock(mutex_);
     if(!(labeled_boxes.size() > 0)) return;
-
-    std::cout << " " << std::endl;
-    std::cout << "flow_extract" << std::endl;
 
     //flow_lebeling
     std::vector<jsk_recognition_msgs::Flow3D> unchecked_flows(flow->flows);
@@ -286,7 +289,6 @@ namespace jsk_pcl_ros
       checked_flows.at(i).resize(unchecked_flows.size());
     }
     translation_flows.resize(labeled_boxes.size());
-    std::cout << "flow test 1" << std::endl;
     for(i = 0; i < unchecked_flows.size(); i++){
       cv::Point3d point(unchecked_flows.at(i).point.x, unchecked_flows.at(i).point.y, unchecked_flows.at(i).point.z);
       k = 0;
@@ -294,38 +296,31 @@ namespace jsk_pcl_ros
         if(comparevertices(point, labeled_boxes.at(j))){
           k++;
           flow_label = j;
-        } 
+        }
       }
       if(k == 1){
         checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
         flow_label_count.at(flow_label)++;
-      }            
-    }
+      }    }
     for(i = 0; i < labeled_boxes.size(); i++){
       checked_flows.at(i).resize(flow_label_count.at(i));
     }
 
-    std::cout << "flow test 2" << std::endl;
     //calc translation_flows
     for(i = 0; i < checked_flows.size(); i++){
       for(j = 0; j < checked_flows.at(i).size(); j++){
         if(j == 0){
-          std::cout << "flow test 2.0" << std::endl;
           translation_flows.at(i) = checked_flows.at(i).at(j);
           translation_flows.at(i).velocity.x = translation_flows.at(i).velocity.x / checked_flows.at(i).size();
           translation_flows.at(i).velocity.y = translation_flows.at(i).velocity.y / checked_flows.at(i).size();
           translation_flows.at(i).velocity.z = translation_flows.at(i).velocity.z / checked_flows.at(i).size();
         } else {
-          std::cout << "flow test 2.1" << std::endl;
-          float test = translation_flows.at(i).velocity.x;
-          std::cout << "flow test 2.1.1" << std::endl;
           translation_flows.at(i).velocity.x += checked_flows.at(i).at(j).velocity.x / checked_flows.at(i).size();
           translation_flows.at(i).velocity.y += checked_flows.at(i).at(j).velocity.y / checked_flows.at(i).size();
           translation_flows.at(i).velocity.z += checked_flows.at(i).at(j).velocity.z / checked_flows.at(i).size();
         }
       }
     }
-    std::cout << "flow test 3" << std::endl;
     for(i = 0; i < checked_flows.size(); i++){
       for(j = 0; j < checked_flows.at(i).size(); j++){
         checked_flows.at(i).at(j).velocity.x -= translation_flows.at(i).velocity.x;
@@ -333,7 +328,19 @@ namespace jsk_pcl_ros
         checked_flows.at(i).at(j).velocity.z -= translation_flows.at(i).velocity.z;
       }
     }
-    std::cout << "flow test 4" << std::endl;
+
+    for(i = 0; i < checked_flows.size(); i++){
+      for(j = 0; j < checked_flows.at(i).size(); j++){
+        //calc_variance
+
+      }
+
+      //if variance < thre
+      //update_boundingbox
+
+      //update box.header
+    }
+
     jsk_recognition_msgs::BoundingBoxArray box_msg;
     box_msg.header = flow->header;
     for(i = 0; i < labeled_boxes.size(); i++){
@@ -343,7 +350,6 @@ namespace jsk_pcl_ros
     //check flow
 
   }
-  
 }
 
 PLUGINLIB_EXPORT_CLASS (jsk_pcl_ros::FlowSegmentation,nodelet::Nodelet);

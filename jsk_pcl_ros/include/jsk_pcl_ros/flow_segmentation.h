@@ -79,15 +79,6 @@ namespace jsk_pcl_ros
     virtual void subscribe();
     virtual void unsubscribe();
     
-    static uint32_t colorRGBAToUInt32(std_msgs::ColorRGBA c)
-    {
-        uint8_t r, g, b;
-        r = (uint8_t)(c.r * 255);
-        g = (uint8_t)(c.g * 255);
-        b = (uint8_t)(c.b * 255);
-        return ((uint32_t)r<<16 | (uint32_t)g<<8 | (uint32_t)b);
-    }
-
     ros::Subscriber sub_box_;
     ros::Subscriber sub_flow_;
     boost::mutex mutex_;
