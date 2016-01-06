@@ -69,10 +69,10 @@ namespace jsk_pcl_ros
     FlowSegmentation(): DiagnosticNodelet("FlowSegmentation") { }
     virtual void onInit();
     virtual bool comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
-                            uint& label);
+                            uint* label);
     virtual std::vector<cv::Point3d> getVertices(const jsk_recognition_msgs::BoundingBox& box);
     virtual bool comparevertices(const cv::Point3d& vertices,
-                                         const std::vector<cv::Point3d>& compared_vertices);
+                                         const jsk_recognition_msgs::BoundingBox& compared_box);
     virtual void box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box);
     virtual void flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr &flow);
   protected:
@@ -96,7 +96,7 @@ namespace jsk_pcl_ros
     std::string tf_prefix_;
     bool publish_tf_;
     Counter cluster_counter_;
-    std::vector<jsk_recognition_msgs::BoundingBox> unlabeled_boxes;
+    ros::Time latest_box_stamp;
     std::vector<jsk_recognition_msgs::BoundingBox> labeled_boxes;
   };
 
