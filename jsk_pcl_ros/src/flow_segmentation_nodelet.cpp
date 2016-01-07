@@ -330,17 +330,32 @@ namespace jsk_pcl_ros
     }
 
     for(i = 0; i < checked_flows.size(); i++){
+      Eigen::Quaternionf mean_q;
       for(j = 0; j < checked_flows.at(i).size(); j++){
         //calc_variance
-
+        //        Eigen::Quaternionf tmp_q;
+        Eigen::Vector3f flow_pos(checked_flows.at(i).at(j).point.x - labeled_boxes.at(i).pose.position.x,
+                                 checked_flows.at(i).at(j).point.y - labeled_boxes.at(i).pose.position.y,
+                                 checked_flows.at(i).at(j).point.z - labeled_boxes.at(i).pose.position.z);
+        Eigen::Vector3f flow_target(flow_pos.x() + checked_flows.at(i).at(j).velocity.x,
+                                    flow_pos.y() + checked_flows.at(i).at(j).velocity.y,
+                                    flow_pos.z() + checked_flows.at(i).at(j).velocity.z);
+        Eigen::Quaternionf q = Eigen::Quaternionf::FromTwoVectors(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitZ());
+        
+        Eigen::Quaternionf tmp_q  = Eigen::Quaternionf::FromTwoVectors(flow_pos, flow_target);
+        if(j == 0){
+          mean_q = tmp_q;
+        } else {
+          mean_q = mean_q + tmp_q;
+        }
       }
-
+      
       //if variance < thre
       //update_boundingbox
-
+      
       //update box.header
     }
-
+    
     jsk_recognition_msgs::BoundingBoxArray box_msg;
     box_msg.header = flow->header;
     for(i = 0; i < labeled_boxes.size(); i++){
@@ -348,7 +363,7 @@ namespace jsk_pcl_ros
     }
     box_pub_.publish(box_msg);
     //check flow
-
+    
   }
 }
 
