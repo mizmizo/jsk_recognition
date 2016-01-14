@@ -286,9 +286,7 @@ namespace jsk_pcl_ros
     //flow_lebeling
     std::vector<jsk_recognition_msgs::Flow3D> unchecked_flows(flow->flows);
     std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
-    //    std::vector<std::vector<Eigen::Vector3d> > checked_flows;
     std::vector<jsk_recognition_msgs::Flow3D> translation_flows;
-    //    std::vector<Eigen::Vector3d> translation_flows;
     std::vector<int> flow_label_count(labeled_boxes.size(),0);
     size_t i,j;
     int k;
@@ -308,40 +306,45 @@ namespace jsk_pcl_ros
         }
       }
       if(k == 1){
-        unchecked_flows.at(i).velocity.x *= 1000.0;
+        /*        unchecked_flows.at(i).velocity.x *= 1000.0; //m to mm
         unchecked_flows.at(i).velocity.y *= 1000.0;
-        unchecked_flows.at(i).velocity.z *= 1000.0;
-        if(unchecked_flows.at(i).velocity.x == 0 &&
-           unchecked_flows.at(i).velocity.y == 0 &&
-           unchecked_flows.at(i).velocity.z == 0) break;
-        checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
-        flow_label_count.at(flow_label)++;
-      }    }
+        unchecked_flows.at(i).velocity.z *= 1000.0;*/
+        if(unchecked_flows.at(i).velocity.x != 0 ||
+           unchecked_flows.at(i).velocity.y != 0 ||
+           unchecked_flows.at(i).velocity.z != 0){
+          checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
+          checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
+          flow_label_count.at(flow_label)++;
+        }
+      }
+    }
     for(i = 0; i < labeled_boxes.size(); i++){
       checked_flows.at(i).resize(flow_label_count.at(i));
     }
 
-    //debug output 
+    //debug output
     for(i = 0; i < checked_flows.size(); i++){
       std::cout << "checked_flow " << i << "  size " << checked_flows.at(i).size() << std::endl;
+
     }
 
     //calc translation_flows
     for(i = 0; i < checked_flows.size(); i++){
       for(j = 0; j < checked_flows.at(i).size(); j++){
         if(j == 0){
-          translation_flows.at(i).velocity.x = checked_flows.at(i).at(j).velocity.x * 100.0;
-          translation_flows.at(i).velocity.y = checked_flows.at(i).at(j).velocity.y * 100.0;
-          translation_flows.at(i).velocity.z = checked_flows.at(i).at(j).velocity.z * 100.0;
+          translation_flows.at(i).velocity.x = checked_flows.at(i).at(j).velocity.x;
+          translation_flows.at(i).velocity.y = checked_flows.at(i).at(j).velocity.y;
+          translation_flows.at(i).velocity.z = checked_flows.at(i).at(j).velocity.z;
         } else {
-          translation_flows.at(i).velocity.x += checked_flows.at(i).at(j).velocity.x * 100.0;
-          translation_flows.at(i).velocity.y += checked_flows.at(i).at(j).velocity.y * 100.0;
-          translation_flows.at(i).velocity.z += checked_flows.at(i).at(j).velocity.z * 100.0;
+          translation_flows.at(i).velocity.x += checked_flows.at(i).at(j).velocity.x;
+          translation_flows.at(i).velocity.y += checked_flows.at(i).at(j).velocity.y;
+          translation_flows.at(i).velocity.z += checked_flows.at(i).at(j).velocity.z;
         }
       }
-      /*      translation_flows.at(i).velocity.x /= (float)checked_flows.at(i).size();
+
+      translation_flows.at(i).velocity.x /= (float)checked_flows.at(i).size();
       translation_flows.at(i).velocity.y /= (float)checked_flows.at(i).size();
-      translation_flows.at(i).velocity.z /= (float)checked_flows.at(i).size(); */
+      translation_flows.at(i).velocity.z /= (float)checked_flows.at(i).size();
     }
     for(i = 0; i < checked_flows.size(); i++){
       for(j = 0; j < checked_flows.at(i).size(); j++){
