@@ -93,7 +93,6 @@ namespace jsk_pcl_ros
       for(j = 0; j < 8; j++){
         if(comparevertices(input_vertices.at(j), labeled_boxes.at(i))
            || comparevertices(compared_vertices.at(j), input_box)){
-          std::cout << "fit_candidate" << std::endl;
           fit_candidate = true;
           break;
         }
@@ -172,7 +171,6 @@ namespace jsk_pcl_ros
                         (compared_vertices.at(4).y*100 - compared_vertices.at(0).y*100),
                         (compared_vertices.at(4).z*100 - compared_vertices.at(0).z*100));
 
-    if(v_x.norm() == 0)std::cout << "nan!!!" << std::endl;
       if((v_target.dot(v_x) / (v_x.norm() * v_x.norm())) > 0.0 &&
        (v_target.dot(v_x) / (v_x.norm() * v_x.norm())) < 1.0 &&
        (v_target.dot(v_y) / (v_y.norm() * v_y.norm())) > 0.0 &&
@@ -190,10 +188,8 @@ namespace jsk_pcl_ros
   {
     vital_checker_->poke();
     boost::mutex::scoped_lock lock(mutex_);
-    std::cout << std::endl;
-    std::cout << "box_extract stamp " << box->header.stamp  << std::endl;
+    size_t i;
     if(box->boxes.size() > 0){
-      size_t i;
       if(labeled_boxes.size() > 0)
         {
           size_t j,k,l,m,count;
@@ -204,29 +200,24 @@ namespace jsk_pcl_ros
           tmp_boxes.resize(box->boxes.size() + boxes_size);
           for(i = 0; i < box->boxes.size(); i++){
             jsk_recognition_msgs::BoundingBox input_box;
-            std::cout << "test box " << i << std::endl;
             input_box = box->boxes[i];
             input_box.header = box->header;
             uint label;
 
             if(comparebox(input_box, &label)){ //fit-box label
-              std::cout << "label " << label << std::endl;
               input_box.label = label;
 
               if (l == 0){
-                std::cout << "update label " << label << std::endl;
                 tmp_boxes.at(l) = input_box;
                 l++;
               } else {
                 for(m = 0; m < l; m++){
                   if(tmp_boxes.at(m).label == label){ //label split
-                    std::cout << "split label " << max_label+j+1  << std::endl;
                     tmp_boxes.at(boxes_size + j) = input_box;
                     tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
                     j++;
                     break;
                   } else if(m == l - 1){ //update label
-                    std::cout << "update label " << label << std::endl;
                     tmp_boxes.at(l) = input_box;
                     l++;
                     break;
@@ -235,7 +226,6 @@ namespace jsk_pcl_ros
               }
             } else {
 
-              std::cout << "create label " << max_label+j+1 << std::endl;
               tmp_boxes.at(boxes_size + j) = input_box; //new label
               tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
               j++;
@@ -262,12 +252,6 @@ namespace jsk_pcl_ros
         }
       }
     }
-    //debug output
-    size_t i;
-    for(i = 0; i < labeled_boxes.size(); i++){
-      std::cout << labeled_boxes.at(i).label << " ";
-    }
-    std::cout << std::endl;
 
     jsk_recognition_msgs::BoundingBoxArray box_msg;
     box_msg.header = box->header;
@@ -281,8 +265,6 @@ namespace jsk_pcl_ros
   void FlowSegmentation::flow_extract(const jsk_recognition_msgs::Flow3DArrayStampedConstPtr& flow)
   {
     boost::mutex::scoped_lock lock(mutex_);
-    std::cout << std::endl;
-    std::cout << "flow_extract stamp " << flow->header.stamp  << std::endl;
     //flow_lebeling
     std::vector<jsk_recognition_msgs::Flow3D> unchecked_flows(flow->flows);
     std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
@@ -320,12 +302,6 @@ namespace jsk_pcl_ros
     }
     for(i = 0; i < labeled_boxes.size(); i++){
       checked_flows.at(i).resize(flow_label_count.at(i));
-    }
-
-    //debug output
-    for(i = 0; i < checked_flows.size(); i++){
-      std::cout << "checked_flow " << i << "  size " << checked_flows.at(i).size() << std::endl;
-
     }
 
     //calc translation_flows
@@ -394,8 +370,6 @@ namespace jsk_pcl_ros
           + (square_mean_q.z() - mean_q.z() * mean_q.z());
 
         if(flow_variance < thre){
-          std::cout << "flow " << i << " passed" << std::endl;
-          std::cout << translation_flows.at(i).velocity.x << " " << translation_flows.at(i).velocity.y << " " << translation_flows.at(i).velocity.z  << std::endl;
           //update_boundingbox
           labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
           labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
