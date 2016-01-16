@@ -61,6 +61,7 @@ add_message_files(
   Flow3D.msg
   Flow3DArray.msg
   Flow3DArrayStamped.msg
+  PlotDataArray.msg
   )
 
 add_service_files(FILES

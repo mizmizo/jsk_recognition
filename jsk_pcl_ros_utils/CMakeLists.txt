@@ -29,7 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
   ${PCL_MSGS} sensor_msgs geometry_msgs jsk_recognition_msgs
   eigen_conversions tf_conversions tf2_ros tf
   image_transport nodelet cv_bridge
-  sklearn jsk_topic_tools
+  jsk_topic_tools
   image_geometry
   jsk_footstep_msgs
   interactive_markers
@@ -144,8 +144,8 @@ generate_messages(DEPENDENCIES
   ${PCL_MSGS} sensor_msgs geometry_msgs jsk_recognition_msgs jsk_footstep_msgs)
 find_package(OpenCV REQUIRED core imgproc)
 
-include_directories(include ${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
-link_directories(${catkin_LIBRARY_DIRS})
+include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
+link_directories(${catkin_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS})
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -z defs")
 
 macro(jsk_pcl_util_nodelet _nodelet_cpp _nodelet_class _single_nodelet_exec_name)
@@ -225,6 +225,8 @@ jsk_pcl_util_nodelet(src/mask_image_to_depth_considered_mask_image_nodelet.cpp
   "jsk_pcl/MaskImageToDepthConsideredMaskImage" "mask_image_to_depth_considered_mask_image")
 jsk_pcl_util_nodelet(src/mask_image_to_point_indices_nodelet.cpp
   "jsk_pcl/MaskImageToPointIndices" "mask_image_to_point_indices")
+jsk_pcl_util_nodelet(src/label_to_cluster_point_indices_nodelet.cpp
+  "jsk_pcl/LabelToClusterPointIndices" "label_to_cluster_point_indices")
 jsk_pcl_util_nodelet(src/plane_concatenator_nodelet.cpp
   "jsk_pcl/PlaneConcatenator" "plane_concatenator")
 jsk_pcl_util_nodelet(src/add_point_indices_nodelet.cpp

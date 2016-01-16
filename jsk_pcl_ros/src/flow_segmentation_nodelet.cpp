@@ -47,7 +47,7 @@
 #include <pcl/filters/project_inliers.h>
 #include <sensor_msgs/image_encodings.h>
 #include <jsk_topic_tools/color_utils.h>
-#include <Eigen/Geometry> 
+#include <Eigen/Geometry>
 
 #include "jsk_pcl_ros/geo_util.h"
 #include "jsk_pcl_ros/pcl_conversion_util.h"
@@ -192,6 +192,7 @@ namespace jsk_pcl_ros
     if(box->boxes.size() > 0){
       if(labeled_boxes.size() > 0)
         {
+          return;
           size_t j,k,l,m,count;
           j = k = l = 0;
           uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
@@ -202,7 +203,7 @@ namespace jsk_pcl_ros
             jsk_recognition_msgs::BoundingBox input_box;
             input_box = box->boxes[i];
             input_box.header = box->header;
-            uint label;
+            uint label = max_label + 1;
 
             if(comparebox(input_box, &label)){ //fit-box label
               input_box.label = label;
@@ -224,8 +225,7 @@ namespace jsk_pcl_ros
                   }
                 }
               }
-            } else {
-
+            } else if(label > max_label){
               tmp_boxes.at(boxes_size + j) = input_box; //new label
               tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
               j++;
@@ -353,7 +353,7 @@ namespace jsk_pcl_ros
         square_mean_q.y() += tmp_q.y() * tmp_q.y();
         square_mean_q.z() += tmp_q.z() * tmp_q.z();
       }
-      float thre = 300.0;
+      float thre = 10.0;
       if(checked_flows.at(i).size() > 0){
         mean_q.w() /= checked_flows.at(i).size();
         mean_q.x() /= checked_flows.at(i).size();
