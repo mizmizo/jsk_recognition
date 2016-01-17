@@ -57,6 +57,8 @@ namespace jsk_pcl_ros
     srv_get_fall_affordance_ = pnh_->advertiseService(
       "get_fall_affordance", &FallAffordanceCalculator::getFallAffordanceService, this);
     onInitPostProcess();
+    box_reversed_ = true;
+    debug_grasp_pose_pub_ = advertise<geometry_msgs::PoseStamped>(*pnh_, "debug_pose", 1);
     ////////////////////////////////////////////////////////
     // Subscription
     ////////////////////////////////////////////////////////
@@ -90,7 +92,7 @@ namespace jsk_pcl_ros
         *input, offset_,
         *tf_listener_);
       reference_cloud_ = input;
-      Eigen::Affine3f inversed_offset_ = offset_.inverse();
+      inversed_offset_ = offset_.inverse();
       frame_id_ = box_msg->header.frame_id;
     }
     catch (tf2::ConnectivityException &e)
@@ -103,19 +105,22 @@ namespace jsk_pcl_ros
       JSK_NODELET_ERROR("[%s] Transform error: %s", __PRETTY_FUNCTION__, e.what());
       return;
     }
-    box_height_ = box_msg->dimensions.z;
+    box_height_ = box_msg->dimensions.z/2;
     pcl::PassThrough<PointT> pass;
     pass.setInputCloud(reference_cloud_);
     Eigen::Vector4f centroid;
     pcl::compute3DCentroid(*reference_cloud_, centroid);
-    centroid_z_ = centroid[2];
+    centroid_z_ = centroid[2] + box_height_;
     pcl::PointCloud<PointT>::Ptr cut_cloud(new pcl::PointCloud<PointT>);
     pass.setFilterFieldName("z");
-    pass.setFilterLimits(-box_height_, -box_height_ + 0.01);
+    if (box_reversed_)
+      pass.setFilterLimits(box_height_ - 0.02, box_height_);
+    else
+      pass.setFilterLimits(-box_height_, -box_height_ + 0.02);
     pass.filter(*cut_cloud);
     cut_cloud_ = cut_cloud;
   }
-  
+
   bool FallAffordanceCalculator::getFallAffordanceService(
     jsk_pcl_ros::GetFallAffordance::Request& req,
     jsk_pcl_ros::GetFallAffordance::Response& res)
@@ -133,12 +138,14 @@ namespace jsk_pcl_ros
       JSK_NODELET_ERROR("TF Error %s",ex.what());
       return false;
     }
+
     Eigen::Affine3f trans_pose_eigened;
     tf::poseMsgToEigen(trans_pose.pose,
                        trans_pose_eigened);
-    Eigen::Affine3f pose_eigened = offset_ * trans_pose_eigened;
+    Eigen::Affine3f pose_eigened =  offset_ * trans_pose_eigened;
+    debug_grasp_pose_pub_.publish(trans_pose);
     pcl::PointCloud<PointT>::Ptr output_cloud(new pcl::PointCloud<PointT>);
-    pcl::transformPointCloud(*cut_cloud_, *output_cloud, pose_eigened);
+    pcl::transformPointCloud(*cut_cloud_, *output_cloud, pose_eigened.inverse());
     float max_x = -200, min_x = 200;
     for(size_t index=0; index<output_cloud->size(); index++){
       if (max_x < output_cloud->points[index].x)
@@ -146,8 +153,13 @@ namespace jsk_pcl_ros
       if (min_x > output_cloud->points[index].x)
         min_x = output_cloud->points[index].x;
     }
-    JSK_NODELET_INFO("min_x %f max_x %f", min_x, max_x);
-    float grasp_z = pose_eigened.translation()[2];
+    JSK_NODELET_INFO("size %d min_x %f max_x %f", output_cloud->size(), min_x, max_x);
+    JSK_NODELET_INFO("grasp_pose_eigen %f %f %f", pose_eigened.translation()[0], pose_eigened.translation()[1], pose_eigened.translation()[2]);
+    float grasp_z;
+    if (box_reversed_)
+      grasp_z = -pose_eigened.translation()[2] + box_height_;
+    else
+      grasp_z = pose_eigened.translation()[2] + box_height_;
     JSK_NODELET_INFO("grasp_height: %f", grasp_z);
     res.affordable_distance = (max_x - min_x) * grasp_z / centroid_z_ / 2;
     JSK_NODELET_INFO("l=%f, hand_z=%f, centroid_z=%f, affordance=%f", max_x - min_x, grasp_z, centroid_z_, res.affordable_distance);

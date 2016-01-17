@@ -88,6 +88,8 @@ namespace jsk_pcl_ros
     float box_height_;
     std::string frame_id_;
     float centroid_z_;
+    bool box_reversed_;
+    ros::Publisher debug_grasp_pose_pub_;
   private:
   };
 }
