@@ -63,6 +63,7 @@ namespace jsk_pcl_ros
     pnh_->param("subPixWinSize", _subPixWinSize, 15);
     pnh_->param("winSize", _winSize, 20);
     pnh_->param("maxLevel", _maxLevel, 5);
+    pnh_->param("tracking_mode", tracking_mode_, true);
     pnh_->param("approximate_sync", approximate_sync_, true);
     pnh_->param("publish_marker", publish_marker_, true);
     result_pub_ = advertise<jsk_recognition_msgs::Flow3DArrayStamped>(
@@ -159,8 +160,15 @@ namespace jsk_pcl_ros
       cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
       pcl::fromROSMsg(*cloud_msg, *prevcloud);
       prevImg_update_required = false;
+      need_to_init = false;
       JSK_ROS_INFO("return");
       return;
+    }
+
+    if(need_to_init){
+      goodFeaturesToTrack(prevImg, points[0], _maxCorners, _qualityLevel, _minDistance, cv::Mat());
+      cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
+      need_to_init = false;
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud
@@ -187,8 +195,8 @@ namespace jsk_pcl_ros
 
     jsk_recognition_msgs::Flow3DArrayStamped flows_result_msg;
     flows_result_msg.header = image_msg->header;
-    visualization_msgs::Marker marker;
     if(publish_marker_){
+      visualization_msgs::Marker marker;
       marker.header = image_msg->header;
       marker.ns = "visualized_flow";
       marker.id = 0;
@@ -208,7 +216,8 @@ namespace jsk_pcl_ros
       marker.scale.x = 0.02;
     }
 
-    size_t i;
+    size_t i, j;
+    j = 0;
     for(i = 0; i < features_found.size(); i++)
       {
         cv::Point2i tmp_prevp = points[0][i];
@@ -256,6 +265,8 @@ namespace jsk_pcl_ros
            ||fabs(flow_result.velocity.z) > 0.5)
           continue;
 
+        points[1][j++] = points[1][i];
+
         cv::circle(flow, points[1][i], 5, cv::Scalar(255,0,0), 2, 8);
         cv::line(flow, points[1][i], points[0][i], cv::Scalar(255,0,0), 2, 8, 0);
         flows_result_msg.flows.push_back(flow_result);
@@ -269,8 +280,13 @@ namespace jsk_pcl_ros
           marker.points.push_back(flow_result.point);
         }
       }
+    if(tracking_mode_){
+      points[1].resize(j);
+      std::swap(points[1],points[0]);
+    } else {
+      std::swap(tmp_points, points[0]);
+    }
     nextImg.copyTo(prevImg);
-    std::swap(tmp_points, points[0]);
     pcl::copyPointCloud(*cloud, *prevcloud);
     flow.copyTo(flow_ptr->image);
     sensor_msgs::ImagePtr flow_image_msg = flow_ptr->toImageMsg();

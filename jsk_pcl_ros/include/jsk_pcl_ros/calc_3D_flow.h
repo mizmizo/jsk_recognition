@@ -76,6 +76,7 @@ namespace jsk_pcl_ros
       const sensor_msgs::Image::ConstPtr& image_msg);
     bool approximate_sync_;
     bool publish_marker_;
+    bool tracking_mode_;
     int _maxCorners;
     double _qualityLevel;
     double _minDistance;
@@ -93,6 +94,7 @@ namespace jsk_pcl_ros
     ros::Publisher vis_pub_;
     cv::Mat prevImg;
     cv::Mat flow;
+    bool need_to_init;
     std::vector<cv::Point2f> points[2];
     pcl::PointCloud<pcl::PointXYZ>::Ptr prevcloud;;
   private:
