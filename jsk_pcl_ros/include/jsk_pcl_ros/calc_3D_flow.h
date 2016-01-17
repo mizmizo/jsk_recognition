@@ -49,6 +49,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
+#include <std_srvs/Empty.h>
 
 namespace jsk_pcl_ros
 {
@@ -74,6 +75,9 @@ namespace jsk_pcl_ros
     virtual void calc3Dflow(
       const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
       const sensor_msgs::Image::ConstPtr& image_msg);
+    virtual bool initServiceCallback(
+      std_srvs::Empty::Request& req,
+      std_srvs::Empty::Response& res);
     bool approximate_sync_;
     bool publish_marker_;
     bool tracking_mode_;
@@ -92,6 +96,7 @@ namespace jsk_pcl_ros
     ros::Publisher image_pub_;
     ros::Publisher result_pub_;
     ros::Publisher vis_pub_;
+    ros::ServiceServer init_srv_;
     cv::Mat prevImg;
     cv::Mat flow;
     bool need_to_init;

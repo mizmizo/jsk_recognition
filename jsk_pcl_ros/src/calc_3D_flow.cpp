@@ -72,7 +72,10 @@ namespace jsk_pcl_ros
       *pnh_, "output/image", 1);
     if(publish_marker_)
       vis_pub_ = advertise<visualization_msgs::Marker>(*pnh_, "output/visualized_flow", 1);
-
+    if(tracking_mode_){
+      init_srv_ = pnh_->advertiseService("initialize", &Calc3DFlow::initServiceCallback, this);
+    }
+    onInitPostProcess();
   }
 
   void Calc3DFlow::subscribe()
@@ -165,6 +168,9 @@ namespace jsk_pcl_ros
       return;
     }
 
+    if(points[0].size() == 0)
+      need_to_init = true;
+
     if(need_to_init){
       goodFeaturesToTrack(prevImg, points[0], _maxCorners, _qualityLevel, _minDistance, cv::Mat());
       cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
@@ -195,8 +201,8 @@ namespace jsk_pcl_ros
 
     jsk_recognition_msgs::Flow3DArrayStamped flows_result_msg;
     flows_result_msg.header = image_msg->header;
+    visualization_msgs::Marker marker;
     if(publish_marker_){
-      visualization_msgs::Marker marker;
       marker.header = image_msg->header;
       marker.ns = "visualized_flow";
       marker.id = 0;
@@ -294,6 +300,14 @@ namespace jsk_pcl_ros
     result_pub_.publish(flows_result_msg);
     if(publish_marker_)
       vis_pub_.publish(marker);
+  }
+
+  bool Calc3DFlow::initServiceCallback(
+    std_srvs::Empty::Request& req,
+    std_srvs::Empty::Response& res)
+  {
+    need_to_init = true;
+    return true;
   }
 }
 
