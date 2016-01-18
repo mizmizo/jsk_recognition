@@ -7,11 +7,11 @@
     <param name="tracking_mode" value="true"/>
     <param name="maxCorners" value="150"/>
   </node>
-  <node pkg="image_view" type="image_view" name="3D_flow_image">
-    <remap from="image" to="/calc_3D_flow/output/image"/>
-  </node>
+  <!-- <node pkg="image_view" type="image_view" name="3D_flow_image"> -->
+  <!--   <remap from="image" to="/calc_3D_flow/output/image"/> -->
+  <!-- </node> -->
   <node pkg="jsk_pcl_ros" type="flow_segmentation" name="flow_segmentation">
-    <remap from="~box" to="/bounding_box_filter/output_box"/>
+    <remap from="~box" to="/cluster_decomposer_final/boxes"/>
     <remap from="~flow" to="/calc_3D_flow/output/flow"/>
   </node>
   <node pkg="jsk_interactive_marker"

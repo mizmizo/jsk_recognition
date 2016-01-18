@@ -49,6 +49,7 @@
 #include <jsk_topic_tools/color_utils.h>
 #include <Eigen/Geometry>
 
+#include "std_srvs/Empty.h"
 #include "jsk_pcl_ros/geo_util.h"
 #include "jsk_pcl_ros/pcl_conversion_util.h"
 #include "jsk_pcl_ros/pcl_util.h"
@@ -101,12 +102,7 @@ namespace jsk_pcl_ros
       if(fit_candidate){
         if(!box_fit){
           *label = copy_labeled_boxes.at(i).label;
-          if(boxes_translate.at(i) < 0.01){
             box_fit = true;
-          } else {
-            box_fit = false;
-            break;
-          }
         } else {
           box_fit = false;
           break;
@@ -194,6 +190,7 @@ namespace jsk_pcl_ros
   {
     vital_checker_->poke();
     boost::mutex::scoped_lock lock(mutex_);
+    std::cout << "box" << std::endl;
     size_t i;
     if(box->boxes.size() > 0){
       if(labeled_boxes.size() > 0)
@@ -204,48 +201,63 @@ namespace jsk_pcl_ros
           size_t boxes_size = labeled_boxes.size();
           std::vector<jsk_recognition_msgs::BoundingBox> tmp_boxes;
           tmp_boxes.resize(box->boxes.size() + boxes_size);
-          for(i = 0; i < box->boxes.size(); i++){
-            jsk_recognition_msgs::BoundingBox input_box;
-            input_box = box->boxes[i];
-            uint label = max_label + 1;
-
-            if(comparebox(input_box, &label)){ //fit-box label
-              input_box.label = label;
-
-              if (l == 0){
-                tmp_boxes.at(l) = input_box;
-                l++;
-              } else {
-                for(m = 0; m < l; m++){
-                  if(tmp_boxes.at(m).label == label){ //label split
-                    tmp_boxes.at(boxes_size + j) = input_box;
-                    tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
-                    j++;
-                    break;
-                  } else if(m == l - 1){ //update label
-                    tmp_boxes.at(l) = input_box;
-                    l++;
-                    break;
+          bool is_translated = false;
+          for(i = 0; i < boxes_translate.size(); i++){
+            if(boxes_translate.at(i) > 0.01){
+              is_translated = true;
+              break;
+            }
+          }
+          if(!is_translated){
+            ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/calc_3D_flow/initialize"); //TODO
+            std_srvs::Empty srv;
+            client.call(srv);
+            for(i = 0; i < box->boxes.size(); i++){
+              jsk_recognition_msgs::BoundingBox input_box;
+              input_box = box->boxes[i];
+              uint label = max_label + 1;
+              
+              if(comparebox(input_box, &label)){ //fit-box label
+                input_box.label = label;
+                
+                if (l == 0){
+                  tmp_boxes.at(l) = input_box;
+                  l++;
+                } else {
+                  for(m = 0; m < l; m++){
+                    if(tmp_boxes.at(m).label == label){ //label split bug?
+                      tmp_boxes.at(boxes_size + j) = input_box;
+                      tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
+                      j++;
+                      need_to_flow_init = true;
+                      break;
+                    } else if(m == l - 1){ //update label
+                      tmp_boxes.at(l) = input_box;
+                      l++;
+                      break;
+                    }
                   }
                 }
-              }
-            } else if(label > max_label){
-              tmp_boxes.at(boxes_size + j) = input_box; //new label
-              tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
-              j++;
-            }
-          }
-          for(i = 0; i < boxes_size; i++){ //update boundingbox
-            for(m = 0; m < l; m++){
-              if(tmp_boxes.at(m).label == labeled_boxes.at(i).label){
-                labeled_boxes.at(k) = tmp_boxes.at(m);
-                k++;
+              } else if(label > max_label){
+                tmp_boxes.at(boxes_size + j) = input_box; //new label
+                tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
+                j++;
+                need_to_flow_init = true;
               }
             }
-          }
-          labeled_boxes.resize(k + j);
-          for(i = 0; i < j; i++){
-            labeled_boxes.at(k + i) = tmp_boxes.at(boxes_size + i);
+            
+            for(i = 0; i < boxes_size; i++){ //update boundingbox
+              for(m = 0; m < l; m++){
+                if(tmp_boxes.at(m).label == labeled_boxes.at(i).label){
+                  labeled_boxes.at(k) = tmp_boxes.at(m);
+                  k++;
+                }
+              }
+            }
+            labeled_boxes.resize(k + j);
+            for(i = 0; i < j; i++){
+              labeled_boxes.at(k + i) = tmp_boxes.at(boxes_size + i);
+            }
           }
         } else {
         for(i = 0; i < box->boxes.size(); i++){
@@ -254,12 +266,19 @@ namespace jsk_pcl_ros
           tmp_box.label = i;
           labeled_boxes.push_back(tmp_box);
         }
+        need_to_flow_init = true;
       }
     }
     
     std::vector<float> tmp(labeled_boxes.size(), 0.0);
     std::swap(boxes_translate, tmp);
     copy_labeled_boxes = labeled_boxes;
+
+    std::cout << "box ";
+    for(i = 0; i < labeled_boxes.size(); i++){
+      std::cout << labeled_boxes.at(i).label << " ";
+    }
+    std::cout << std::endl;
     jsk_recognition_msgs::BoundingBoxArray box_msg;
     box_msg.header = box->header;
     for(i = 0; i < labeled_boxes.size(); i++){
@@ -274,15 +293,16 @@ namespace jsk_pcl_ros
   {
     boost::mutex::scoped_lock lock(mutex_);
     if(labeled_boxes.size() == 0)return;
-    //flow_lebeling
     std::vector<jsk_recognition_msgs::Flow3D> unchecked_flows(flow->flows);
     std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
     std::vector<jsk_recognition_msgs::Flow3D> translation_flows;
+    std::vector<jsk_recognition_msgs::Flow3D> tmp_unchecked_flows;
     std::vector<int> flow_label_count(labeled_boxes.size(),0);
     uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
     size_t i,j;
     int k;
     uint flow_label; // not same as BoundingBox.label
+    //flow_lebeling
     if(need_to_flow_init){
       flow_labels.resize(unchecked_flows.size());
     }
@@ -309,36 +329,89 @@ namespace jsk_pcl_ros
           checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
           checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
           flow_label_count.at(flow_label)++;
-          flow_labels.at(i) = flow_label;
+          flow_labels.at(i) = labeled_boxes.at(flow_label).label;
         } else {
-          flow_label.at(i) = max_label + 1;
+          flow_labels.at(i) = max_label + 1;
+        }
       }
       for(i = 0; i < labeled_boxes.size(); i++){
         checked_flows.at(i).resize(flow_label_count.at(i));
       }
+      copy_unchecked_flows = unchecked_flows;
       need_to_flow_init = false;
     } else if (flow_labels.size() == unchecked_flows.size()){
-        for(i = 0; i < unchecked_flows.size() ; i++){
-          if(flow_labels.at(i) <= max_label){
-            checked_flows.at(flow_labels.at(i)).push_back(unchecked_flows.at(i));
-            checked_flows.at(flow_labels.at(i)).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
-            flow_label_count.at(flow_labels.at(i))++;
+      std::cout << "test1 max_label " << max_label; 
+      for(i = 0; i < unchecked_flows.size() ; i++){
+        if(flow_labels.at(i) <= max_label){
+          for(j = 0; j < labeled_boxes.size(); j++){
+            if(flow_labels.at(i) == labeled_boxes.at(j).label){
+              flow_label = j;
+              break;
+            }
           }
+          checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
+          checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
+          flow_label_count.at(flow_label)++;
         }
-        for(i = 0; i < labeled_boxes.size(); i++){
-          checked_flows.at(i).resize(flow_label_count.at(i));
-        } 
-      } else if(flow_labels.size() > unchecked_flows.size()){
+      }
+      for(i = 0; i < labeled_boxes.size(); i++){
+        checked_flows.at(i).resize(flow_label_count.at(i));
+      }
+
+    } else if(flow_labels.size() > unchecked_flows.size()){
+      std::cout << "test2 max_label " << max_label << " "; 
       int diff = flow_labels.size() - unchecked_flows.size();
       k = 0;
-      for(i = 0; i < unchecked_flows.size() ; i++){
-        //TODO
-
+      j = 0;
+      for(i = 0; i < copy_unchecked_flows.size() ; i++){
+        if(j == unchecked_flows.size()){
+          std::cout << "Failed to update flow_labels" << std::endl;
+          need_to_flow_init = true;
+          return;
+        }
+        if(k == diff) {
+          if(flow_labels.at(i - k) <= max_label){
+          size_t l;
+          for(l = 0; l < labeled_boxes.size(); l++){
+            if(flow_labels.at(i - k) == labeled_boxes.at(l).label)
+              flow_label = l;
+            break;
+          }
+            checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
+            checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
+            flow_label_count.at(flow_label)++;
+          }
+          j++;
+        } else {
+          float dist_x = unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x - copy_unchecked_flows.at(i).point.x;
+          float dist_y = unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y - copy_unchecked_flows.at(i).point.y;
+          float dist_z = unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z - copy_unchecked_flows.at(i).point.z;
+          float dist = sqrt(dist_x * dist_x + dist_y * dist_y + dist_z * dist_z);
+          if(dist < 0.00000001){
+            if(flow_labels.at(i - k) <= max_label){
+              size_t l;
+              for(l = 0; l < labeled_boxes.size(); l++){
+                if(flow_labels.at(i - k) == labeled_boxes.at(l).label)
+                  flow_label = l;
+                break;
+              }
+              checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
+              checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
+              flow_label_count.at(flow_label)++;
+            }
+            tmp_unchecked_flows.push_back(unchecked_flows.at(j));
+            j++;
+          } else {
+            flow_labels.erase(flow_labels.begin() + i - k);
+            k++;
+          }
+        }
       }
-        
+      if(j != unchecked_flows.size())std::cout << "flow_labels update error" << std::endl;
+      tmp_unchecked_flows.resize(j);
+      copy_unchecked_flows = tmp_unchecked_flows;
     }
-    
-    
+
     //calc translation_flows
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
@@ -359,16 +432,18 @@ namespace jsk_pcl_ros
         boxes_translate.at(i) += sqrt(translation_flows.at(i).velocity.x * translation_flows.at(i).velocity.x
                                       + translation_flows.at(i).velocity.y * translation_flows.at(i).velocity.y
                                       + translation_flows.at(i).velocity.z * translation_flows.at(i).velocity.z);
-        for(i = 0; i < checked_flows.size(); i++){
-          for(j = 0; j < checked_flows.at(i).size(); j++){
-            checked_flows.at(i).at(j).velocity.x -= translation_flows.at(i).velocity.x;
-            checked_flows.at(i).at(j).velocity.y -= translation_flows.at(i).velocity.y;
-            checked_flows.at(i).at(j).velocity.z -= translation_flows.at(i).velocity.z;
-          }
+      }
+    }
+    for(i = 0; i < checked_flows.size(); i++){
+      if(checked_flows.at(i).size() > 0){
+        for(j = 0; j < checked_flows.at(i).size(); j++){
+          checked_flows.at(i).at(j).velocity.x -= translation_flows.at(i).velocity.x;
+          checked_flows.at(i).at(j).velocity.y -= translation_flows.at(i).velocity.y;
+          checked_flows.at(i).at(j).velocity.z -= translation_flows.at(i).velocity.z;
         }
       }
     }
-    
+
     //calc_variance
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
@@ -407,7 +482,6 @@ namespace jsk_pcl_ros
           + (square_mean_q.x() - mean_q.x() * mean_q.x())
           + (square_mean_q.y() - mean_q.y() * mean_q.y())
           + (square_mean_q.z() - mean_q.z() * mean_q.z());
-        
         if(flow_variance < thre){
           //update_boundingbox
           labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
@@ -432,13 +506,29 @@ namespace jsk_pcl_ros
       }
     }
     
+    k = 0;
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() == 0){
-        labeled_boxes.erase(labeled_boxes.begin() + i);
-        copy_labeled_boxes.erase(copy_labeled_boxes.begin() + i);
-        boxes_translate.erase(boxes_translate.begin() + i);
+        for(j = 0; j < flow_labels.size(); j++){
+          if(flow_labels.at(j) == labeled_boxes.at(i - k).label){
+            flow_labels.at(j) = max_label + 2;
+          }
+        }
+        labeled_boxes.erase(labeled_boxes.begin() + i - k);
+        copy_labeled_boxes.erase(copy_labeled_boxes.begin() + i - k);
+        boxes_translate.erase(boxes_translate.begin() + i - k);
+        k++;
       }
     }
+    std::cout << "flow ";
+    for(i = 0; i < labeled_boxes.size(); i++){
+      std::cout << labeled_boxes.at(i).label << " ";
+    }
+    std::cout << std::endl;
+    for(i = 0; i < flow_labels.size(); i++ ){
+      std::cout << flow_labels.at(i) << " " ;
+    }
+    std::cout << std::endl;
     
     jsk_recognition_msgs::BoundingBoxArray box_msg;
     box_msg.header = flow->header;
@@ -450,4 +540,3 @@ namespace jsk_pcl_ros
 }
 
 PLUGINLIB_EXPORT_CLASS (jsk_pcl_ros::FlowSegmentation,nodelet::Nodelet);
-

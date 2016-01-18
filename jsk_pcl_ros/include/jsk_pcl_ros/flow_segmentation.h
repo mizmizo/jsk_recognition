@@ -86,10 +86,9 @@ namespace jsk_pcl_ros
     tf::TransformBroadcaster br_;
     std::string tf_prefix_;
     bool publish_tf_;
-    Counter cluster_counter_;
-    ros::Time latest_box_stamp;
     std::vector<jsk_recognition_msgs::BoundingBox> labeled_boxes;
     std::vector<jsk_recognition_msgs::BoundingBox> copy_labeled_boxes;
+    std::vector<jsk_recognition_msgs::Flow3D> copy_unchecked_flows;
     std::vector<float> boxes_translate;
     std::vector<uint> flow_labels;
     bool need_to_flow_init;
