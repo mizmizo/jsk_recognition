@@ -317,7 +317,7 @@ namespace jsk_pcl_ros
     translation_flows.resize(labeled_boxes.size());
     if(need_to_flow_init){
       for(i = 0; i < unchecked_flows.size(); i++){
-        cv::Point3d point(unchecked_flows.at(i).point.x, unchecked_flows.at(i).point.y, unchecked_flows.at(i).point.z);
+        cv::Point3d point(unchecked_flows.at(i).point.x - unchecked_flows.at(i).velocity.x, unchecked_flows.at(i).point.y - unchecked_flows.at(i).velocity.y, unchecked_flows.at(i).point.z - unchecked_flows.at(i).velocity.z);
         k = 0;
         for(j = 0; j < labeled_boxes.size(); j++){
           if(comparevertices(point, labeled_boxes.at(j))){
@@ -349,7 +349,7 @@ namespace jsk_pcl_ros
               break;
             }
           }
-          cv::Point3d point(unchecked_flows.at(i).point.x, unchecked_flows.at(i).point.y, unchecked_flows.at(i).point.z);
+          cv::Point3d point(unchecked_flows.at(i).point.x  - unchecked_flows.at(i).velocity.x, unchecked_flows.at(i).point.y - unchecked_flows.at(i).velocity.y, unchecked_flows.at(i).point.z - unchecked_flows.at(i).velocity.z);
           if(comparevertices(point,labeled_boxes.at(flow_label))){
             checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
             checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
@@ -382,7 +382,7 @@ namespace jsk_pcl_ros
                 flow_label = l;
               break;
             }
-            cv::Point3d point(unchecked_flows.at(j).point.x, unchecked_flows.at(j).point.y, unchecked_flows.at(j).point.z);
+            cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
             if(comparevertices(point, labeled_boxes.at(flow_label))){
               checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
               checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
@@ -405,7 +405,7 @@ namespace jsk_pcl_ros
                   flow_label = l;
                 break;
               }
-              cv::Point3d point(unchecked_flows.at(j).point.x, unchecked_flows.at(j).point.y, unchecked_flows.at(j).point.z);
+              cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
               if(comparevertices(point, labeled_boxes.at(flow_label))){
                 checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
                 checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
