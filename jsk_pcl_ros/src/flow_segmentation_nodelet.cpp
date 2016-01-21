@@ -203,13 +203,13 @@ namespace jsk_pcl_ros
           tmp_boxes.resize(box->boxes.size() + boxes_size);
           bool is_translated = false;
           for(i = 0; i < boxes_translate.size(); i++){
-            if(boxes_translate.at(i) > 0.01){
+            if(boxes_translate.at(i) > 0.02){
               is_translated = true;
               break;
             }
           }
           if(!is_translated){
-            ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/calc_3D_flow/initialize"); //TODO
+            ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/calc_3D_flow/initialize");
             std_srvs::Empty srv;
             client.call(srv);
             for(i = 0; i < box->boxes.size(); i++){
@@ -349,15 +349,20 @@ namespace jsk_pcl_ros
               break;
             }
           }
-          checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
-          checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
-          flow_label_count.at(flow_label)++;
+          cv::Point3d point(unchecked_flows.at(i).point.x, unchecked_flows.at(i).point.y, unchecked_flows.at(i).point.z);
+          if(comparevertices(point,labeled_boxes.at(flow_label))){
+            checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
+            checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
+            flow_label_count.at(flow_label)++;
+          } else {
+            flow_labels.at(i) = max_label + 1;
+          }
         }
       }
       for(i = 0; i < labeled_boxes.size(); i++){
         checked_flows.at(i).resize(flow_label_count.at(i));
       }
-
+      
     } else if(flow_labels.size() > unchecked_flows.size()){
       std::cout << "test2 max_label " << max_label << " "; 
       int diff = flow_labels.size() - unchecked_flows.size();
@@ -371,15 +376,20 @@ namespace jsk_pcl_ros
         }
         if(k == diff) {
           if(flow_labels.at(i - k) <= max_label){
-          size_t l;
-          for(l = 0; l < labeled_boxes.size(); l++){
-            if(flow_labels.at(i - k) == labeled_boxes.at(l).label)
-              flow_label = l;
-            break;
-          }
-            checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
-            checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
-            flow_label_count.at(flow_label)++;
+            size_t l;
+            for(l = 0; l < labeled_boxes.size(); l++){
+              if(flow_labels.at(i - k) == labeled_boxes.at(l).label)
+                flow_label = l;
+              break;
+            }
+            cv::Point3d point(unchecked_flows.at(j).point.x, unchecked_flows.at(j).point.y, unchecked_flows.at(j).point.z);
+            if(comparevertices(point, labeled_boxes.at(flow_label))){
+              checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
+              checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
+              flow_label_count.at(flow_label)++;
+            } else {
+              flow_labels.at(j) = max_label + 1;
+            }
           }
           j++;
         } else {
@@ -395,9 +405,14 @@ namespace jsk_pcl_ros
                   flow_label = l;
                 break;
               }
-              checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
-              checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
-              flow_label_count.at(flow_label)++;
+              cv::Point3d point(unchecked_flows.at(j).point.x, unchecked_flows.at(j).point.y, unchecked_flows.at(j).point.z);
+              if(comparevertices(point, labeled_boxes.at(flow_label))){
+                checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
+                checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
+                flow_label_count.at(flow_label)++;
+              } else {
+                flow_labels.at(j) = max_label + 1;
+              }
             }
             tmp_unchecked_flows.push_back(unchecked_flows.at(j));
             j++;
