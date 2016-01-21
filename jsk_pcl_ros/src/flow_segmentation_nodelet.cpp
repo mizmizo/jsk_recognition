@@ -190,7 +190,7 @@ namespace jsk_pcl_ros
   {
     vital_checker_->poke();
     boost::mutex::scoped_lock lock(mutex_);
-    std::cout << "box" << std::endl;
+    std::cout << "box ";
     size_t i;
     if(box->boxes.size() > 0){
       if(labeled_boxes.size() > 0)
@@ -203,12 +203,13 @@ namespace jsk_pcl_ros
           tmp_boxes.resize(box->boxes.size() + boxes_size);
           bool is_translated = false;
           for(i = 0; i < boxes_translate.size(); i++){
-            if(boxes_translate.at(i) > 0.02){
+            if(boxes_translate.at(i) > 0.01){
               is_translated = true;
               break;
             }
           }
           if(!is_translated){
+            std::cout << "not translated ";
             ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/calc_3D_flow/initialize");
             std_srvs::Empty srv;
             client.call(srv);
@@ -274,7 +275,6 @@ namespace jsk_pcl_ros
     std::swap(boxes_translate, tmp);
     copy_labeled_boxes = labeled_boxes;
 
-    std::cout << "box ";
     for(i = 0; i < labeled_boxes.size(); i++){
       std::cout << labeled_boxes.at(i).label << " ";
     }
@@ -340,7 +340,7 @@ namespace jsk_pcl_ros
       copy_unchecked_flows = unchecked_flows;
       need_to_flow_init = false;
     } else if (flow_labels.size() == unchecked_flows.size()){
-      std::cout << "test1 max_label " << max_label; 
+      std::cout << "test1 max_label " << max_label << " "; 
       for(i = 0; i < unchecked_flows.size() ; i++){
         if(flow_labels.at(i) <= max_label){
           for(j = 0; j < labeled_boxes.size(); j++){
@@ -350,7 +350,8 @@ namespace jsk_pcl_ros
             }
           }
           cv::Point3d point(unchecked_flows.at(i).point.x  - unchecked_flows.at(i).velocity.x, unchecked_flows.at(i).point.y - unchecked_flows.at(i).velocity.y, unchecked_flows.at(i).point.z - unchecked_flows.at(i).velocity.z);
-          if(comparevertices(point,labeled_boxes.at(flow_label))){
+//          if(comparevertices(point,labeled_boxes.at(flow_label))){
+          if(1){
             checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
             checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
             flow_label_count.at(flow_label)++;
@@ -383,7 +384,8 @@ namespace jsk_pcl_ros
               break;
             }
             cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
-            if(comparevertices(point, labeled_boxes.at(flow_label))){
+            //if(comparevertices(point, labeled_boxes.at(flow_label))){
+            if(1){
               checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
               checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
               flow_label_count.at(flow_label)++;
@@ -406,7 +408,8 @@ namespace jsk_pcl_ros
                 break;
               }
               cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
-              if(comparevertices(point, labeled_boxes.at(flow_label))){
+              //if(comparevertices(point, labeled_boxes.at(flow_label))){
+              if(1){
                 checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
                 checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
                 flow_label_count.at(flow_label)++;
