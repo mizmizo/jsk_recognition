@@ -279,9 +279,12 @@ namespace jsk_pcl_ros
 
         if(publish_marker_){
           geometry_msgs::Point start_point;
-          start_point.x = prevp.x;
-          start_point.y = prevp.y;
-          start_point.z = prevp.z;
+          start_point.x = flow_result.point.x - flow_result.velocity.x * 5;
+          start_point.y = flow_result.point.y - flow_result.velocity.y * 5;
+          start_point.z = flow_result.point.z - flow_result.velocity.z * 5;
+          // start_point.x = prevp.x;
+          // start_point.y = prevp.y;
+          // start_point.z = prevp.z;
           marker.points.push_back(start_point);
           marker.points.push_back(flow_result.point);
         }
