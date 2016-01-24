@@ -173,12 +173,12 @@ namespace jsk_pcl_ros
                         (compared_vertices.at(4).y*100 - compared_vertices.at(0).y*100),
                         (compared_vertices.at(4).z*100 - compared_vertices.at(0).z*100));
 
-      if((v_target.dot(v_x) / (v_x.norm() * v_x.norm())) > 0.0 &&
-       (v_target.dot(v_x) / (v_x.norm() * v_x.norm())) < 1.0 &&
-       (v_target.dot(v_y) / (v_y.norm() * v_y.norm())) > 0.0 &&
-       (v_target.dot(v_y) / (v_y.norm() * v_y.norm())) < 1.0 &&
-       (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) > 0.0 &&
-       (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) < 1.0)
+      if((v_target.dot(v_x) / (v_x.norm() * v_x.norm())) > -0.1 &&
+       (v_target.dot(v_x) / (v_x.norm() * v_x.norm())) < 1.1 &&
+       (v_target.dot(v_y) / (v_y.norm() * v_y.norm())) > -0.1 &&
+       (v_target.dot(v_y) / (v_y.norm() * v_y.norm())) < 1.1 &&
+       (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) > -0.1 &&
+       (v_target.dot(v_z) / (v_z.norm() * v_z.norm())) < 1.1)
       {
         return true;
       } else {
@@ -208,6 +208,7 @@ namespace jsk_pcl_ros
               break;
             }
           }
+          //if(!is_translated){
           if(!is_translated){
             std::cout << "not translated ";
             ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/calc_3D_flow/initialize");
@@ -250,14 +251,14 @@ namespace jsk_pcl_ros
             for(i = 0; i < boxes_size; i++){ //update boundingbox
               for(m = 0; m < l; m++){
                 if(tmp_boxes.at(m).label == labeled_boxes.at(i).label){
-                  labeled_boxes.at(k) = tmp_boxes.at(m);
-                  k++;
+                  labeled_boxes.at(i) = tmp_boxes.at(m);
+                  break;
                 }
               }
             }
-            labeled_boxes.resize(k + j);
+            labeled_boxes.resize(boxes_size + j);
             for(i = 0; i < j; i++){
-              labeled_boxes.at(k + i) = tmp_boxes.at(boxes_size + i);
+              labeled_boxes.at(boxes_size + i) = tmp_boxes.at(boxes_size + i);
             }
           }
         } else {
@@ -315,7 +316,8 @@ namespace jsk_pcl_ros
       checked_flows.at(i).resize(unchecked_flows.size());
     }
     translation_flows.resize(labeled_boxes.size());
-    if(need_to_flow_init){
+    if(need_to_flow_init ||
+       flow_labels.size() > unchecked_flows.size()){
       for(i = 0; i < unchecked_flows.size(); i++){
         cv::Point3d point(unchecked_flows.at(i).point.x - unchecked_flows.at(i).velocity.x, unchecked_flows.at(i).point.y - unchecked_flows.at(i).velocity.y, unchecked_flows.at(i).point.z - unchecked_flows.at(i).velocity.z);
         k = 0;
@@ -364,9 +366,9 @@ namespace jsk_pcl_ros
         checked_flows.at(i).resize(flow_label_count.at(i));
       }
       
-    } else if(flow_labels.size() > unchecked_flows.size()){
-      std::cout << "test2 max_label " << max_label << " "; 
+    } else if(flow_labels.size() > unchecked_flows.size()){ //disabled
       int diff = flow_labels.size() - unchecked_flows.size();
+      std::cout << "test2 max_label " << max_label << " diff " << diff; 
       k = 0;
       j = 0;
       for(i = 0; i < copy_unchecked_flows.size() ; i++){
@@ -379,11 +381,12 @@ namespace jsk_pcl_ros
           if(flow_labels.at(i - k) <= max_label){
             size_t l;
             for(l = 0; l < labeled_boxes.size(); l++){
-              if(flow_labels.at(i - k) == labeled_boxes.at(l).label)
+              if(flow_labels.at(i - k) == labeled_boxes.at(l).label){
                 flow_label = l;
-              break;
+                break;
+              }
             }
-            cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
+            //cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
             //if(comparevertices(point, labeled_boxes.at(flow_label))){
             if(1){
               checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
@@ -399,15 +402,16 @@ namespace jsk_pcl_ros
           float dist_y = unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y - copy_unchecked_flows.at(i).point.y;
           float dist_z = unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z - copy_unchecked_flows.at(i).point.z;
           float dist = sqrt(dist_x * dist_x + dist_y * dist_y + dist_z * dist_z);
-          if(dist < 0.00000001){
+          if(dist < 0.0001){
             if(flow_labels.at(i - k) <= max_label){
               size_t l;
               for(l = 0; l < labeled_boxes.size(); l++){
-                if(flow_labels.at(i - k) == labeled_boxes.at(l).label)
+                if(flow_labels.at(i - k) == labeled_boxes.at(l).label){
                   flow_label = l;
-                break;
+                  break;
+                }
               }
-              cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
+              //cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
               //if(comparevertices(point, labeled_boxes.at(flow_label))){
               if(1){
                 checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
@@ -425,11 +429,14 @@ namespace jsk_pcl_ros
           }
         }
       }
+      for(i = 0; i < checked_flows.size(); i++){
+        checked_flows.at(i).resize(flow_label_count.at(i));
+      }
       if(j != unchecked_flows.size())std::cout << "flow_labels update error" << std::endl;
       tmp_unchecked_flows.resize(j);
       copy_unchecked_flows = tmp_unchecked_flows;
     }
-
+    std::cout << std::endl;
     //calc translation_flows
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
@@ -451,7 +458,9 @@ namespace jsk_pcl_ros
                                       + translation_flows.at(i).velocity.y * translation_flows.at(i).velocity.y
                                       + translation_flows.at(i).velocity.z * translation_flows.at(i).velocity.z);
       }
+      std::cout << "box " << labeled_boxes.at(i).label << " flow_size " << checked_flows.at(i).size() <<" translate " << translation_flows.at(i).velocity.x << " " << translation_flows.at(i).velocity.y << " " << translation_flows.at(i).velocity.z << std::endl;
     }
+
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
         for(j = 0; j < checked_flows.at(i).size(); j++){
@@ -459,6 +468,7 @@ namespace jsk_pcl_ros
           checked_flows.at(i).at(j).velocity.y -= translation_flows.at(i).velocity.y;
           checked_flows.at(i).at(j).velocity.z -= translation_flows.at(i).velocity.z;
         }
+
       }
     }
 
