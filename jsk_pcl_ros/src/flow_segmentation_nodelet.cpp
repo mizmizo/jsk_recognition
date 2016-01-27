@@ -524,10 +524,12 @@ namespace jsk_pcl_ros
           labeled_boxes.at(i).pose.orientation.x = next_q.x();
           labeled_boxes.at(i).pose.orientation.y = next_q.y();
           labeled_boxes.at(i).pose.orientation.z = next_q.z();
+          labeled_boxes.at(i).value = 0;
         } else {
           labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
           labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
           labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
+          labeled_boxes.at(i).value = 1;
         }
         //update box.header
         labeled_boxes.at(i).header = flow->header; 
