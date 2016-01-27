@@ -161,7 +161,8 @@ namespace jsk_pcl_ros
     else
       grasp_z = pose_eigened.translation()[2] + box_height_;
     JSK_NODELET_INFO("grasp_height: %f", grasp_z);
-    res.affordable_distance = (max_x - min_x) * grasp_z / centroid_z_ / 2;
+    //res.affordable_distance = (max_x - min_x) * grasp_z / centroid_z_ / 2;
+    res.affordable_distance = sqrt(((max_x - min_x) * (max_x - min_x) + grasp_z * grasp_z) / (1 + 4 * centroid_z_ * centroid_z_ / (max_x - min_x) / (max_x - min_x)));
     JSK_NODELET_INFO("l=%f, hand_z=%f, centroid_z=%f, affordance=%f", max_x - min_x, grasp_z, centroid_z_, res.affordable_distance);
     return true;
   }
