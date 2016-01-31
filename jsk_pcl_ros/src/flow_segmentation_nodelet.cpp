@@ -208,7 +208,6 @@ namespace jsk_pcl_ros
               break;
             }
           }
-          //if(!is_translated){
           if(!is_translated){
             std::cout << "not translated ";
             ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/calc_3D_flow/initialize");
@@ -496,7 +495,7 @@ namespace jsk_pcl_ros
           square_mean_q.y() += tmp_q.y() * tmp_q.y();
           square_mean_q.z() += tmp_q.z() * tmp_q.z();
         }
-        float thre = 10.0;
+        float thre = 0.00007;
         mean_q.w() /= checked_flows.at(i).size();
         mean_q.x() /= checked_flows.at(i).size();
         mean_q.y() /= checked_flows.at(i).size();
@@ -510,6 +509,7 @@ namespace jsk_pcl_ros
           + (square_mean_q.x() - mean_q.x() * mean_q.x())
           + (square_mean_q.y() - mean_q.y() * mean_q.y())
           + (square_mean_q.z() - mean_q.z() * mean_q.z());
+        std::cout << "variance : " << flow_variance << std::endl;
         if(flow_variance < thre){
           //update_boundingbox
           labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
@@ -524,7 +524,8 @@ namespace jsk_pcl_ros
           labeled_boxes.at(i).pose.orientation.x = next_q.x();
           labeled_boxes.at(i).pose.orientation.y = next_q.y();
           labeled_boxes.at(i).pose.orientation.z = next_q.z();
-          labeled_boxes.at(i).value = 0;
+          if(labeled_boxes.at(i).value != 1)
+            labeled_boxes.at(i).value = 0;
         } else {
           labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
           labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
