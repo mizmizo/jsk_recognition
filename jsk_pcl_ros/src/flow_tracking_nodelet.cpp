@@ -34,7 +34,6 @@
  *********************************************************************/
 
 #include "jsk_pcl_ros/flow_tracking.h"
-#include <cv_bridge/cv_bridge.h>
 #include <pluginlib/class_list_macros.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/common/centroid.h>
@@ -49,7 +48,6 @@
 #include <jsk_topic_tools/color_utils.h>
 #include <Eigen/Geometry>
 
-#include "std_srvs/Empty.h"
 #include "jsk_pcl_ros/geo_util.h"
 #include "jsk_pcl_ros/pcl_conversion_util.h"
 #include "jsk_pcl_ros/pcl_util.h"
@@ -79,7 +77,7 @@ namespace jsk_pcl_ros
     if(tracking_mode_){
       init_srv_ = pnh_->advertiseService("initialize", &FlowTracking::initServiceCallback, this);
     }
-    need_to_flow_init = true;
+    need_to_label_init = true;
     onInitPostProcess();
 
   }
@@ -110,7 +108,7 @@ namespace jsk_pcl_ros
     sub_image_.unsubscribe();
   }
   
-  pcl::PointXYZ Calc3DFlow::trimmedmean(
+  pcl::PointXYZ FlowTracking::trimmedmean(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     cv::Point2i point)
   {
@@ -244,11 +242,12 @@ namespace jsk_pcl_ros
     }
   }
 
-  bool Calc3DFlow::initServiceCallback(
+  bool FlowTracking::initServiceCallback(
     std_srvs::Empty::Request& req,
     std_srvs::Empty::Response& res)
   {
-    need_to_init = true;
+    need_to_flow_init = true;
+    need_to_label_init = true;
     return true;
   }
   
@@ -276,7 +275,7 @@ namespace jsk_pcl_ros
           }
           if(!is_translated){
             std::cout << "not translated ";
-            ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/calc_3D_flow/initialize");
+            ros::ServiceClient client = pnh_->serviceClient<std_srvs::Empty>("/flow_tracking/initialize");
             std_srvs::Empty srv;
             client.call(srv);
             for(i = 0; i < box->boxes.size(); i++){
@@ -296,7 +295,7 @@ namespace jsk_pcl_ros
                       tmp_boxes.at(boxes_size + j) = input_box;
                       tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
                       j++;
-                      need_to_flow_init = true;
+                      need_to_label_init = true;
                       break;
                     } else if(m == l - 1){ //update label
                       tmp_boxes.at(l) = input_box;
@@ -309,7 +308,7 @@ namespace jsk_pcl_ros
                 tmp_boxes.at(boxes_size + j) = input_box; //new label
                 tmp_boxes.at(boxes_size + j).label = max_label + j + 1;
                 j++;
-                need_to_flow_init = true;
+                need_to_label_init = true;
               }
             }
             
@@ -333,7 +332,7 @@ namespace jsk_pcl_ros
           tmp_box.label = i;
           labeled_boxes.push_back(tmp_box);
         }
-        need_to_flow_init = true;
+        need_to_label_init = true;
       }
     }
     
@@ -362,7 +361,7 @@ namespace jsk_pcl_ros
     boost::mutex::scoped_lock lock(mutex_);
     if(labeled_boxes.size() == 0)return;
 
-    //calc flow
+    /* === calc flow === */
     if (cloud_msg->header.frame_id != image_msg->header.frame_id){
       JSK_NODELET_FATAL("frame_id is not collect: [%s, %s",
                         cloud_msg->header.frame_id.c_str(),
@@ -389,18 +388,19 @@ namespace jsk_pcl_ros
       cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
       pcl::fromROSMsg(*cloud_msg, *prevcloud);
       prevImg_update_required = false;
-      need_to_init = false;
+      need_to_flow_init = false;
       JSK_ROS_INFO("return");
       return;
     }
 
-    if(points[0].size() == 0)
-      need_to_init = true;
-
-    if(need_to_init){
+    if(points[0].size() == 0){
+      need_to_flow_init = true;
+      need_to_label_init = true;
+    }
+    if(need_to_flow_init){
       goodFeaturesToTrack(prevImg, points[0], _maxCorners, _qualityLevel, _minDistance, cv::Mat());
       cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
-      need_to_init = false;
+      need_to_flow_init = false;
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud
@@ -417,7 +417,6 @@ namespace jsk_pcl_ros
     std::vector<float> feature_errors;
     cv::calcOpticalFlowPyrLK(prevImg, nextImg, points[0], points[1], features_found, feature_errors, cv::Size(_winSize, _winSize),
                              _maxLevel, termcrit, 0, 0.001);
-    //cv::OPTFLOW_USE_INITIAL_FLOW); 
 
     //calc back flow
     std::vector<uchar> back_features_found;
@@ -450,7 +449,21 @@ namespace jsk_pcl_ros
       marker.scale.x = 0.02;
     }
 
-    size_t i, j;
+    //prepare flow labelling
+    std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
+    std::vector<int> flow_label_count(labeled_boxes.size(),0);
+    uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
+    size_t i, j, l, m;
+    size_t k = 0;
+    uint flow_label; // not same as BoundingBox.label
+    if(need_to_label_init){
+      flow_labels.resize(features_found.size());
+    }
+    checked_flows.resize(labeled_boxes.size());
+    for(i = 0; i < labeled_boxes.size(); i++){
+      checked_flows.at(i).resize(features_found.size());
+    }
+
     j = 0;
     for(i = 0; i < features_found.size(); i++)
       {
@@ -465,17 +478,26 @@ namespace jsk_pcl_ros
            || tmp_prevp.x < 2
            || tmp_prevp.y < 2
            || tmp_nextp.x < 2
-           || tmp_nextp.y < 2 )
+           || tmp_nextp.y < 2 ){
+          if(!need_to_label_init){
+            //todo  remove label
+          }
           continue;
+        }
 
+        //back flow check
         double theta = ((points[1][i].x - points[0][i].x) * (points[1][i].x - back_points[i].x)
                         + (points[1][i].y - points[0][i].y) * (points[1][i].y - back_points[i].y))
           / (sqrt((points[1][i].x - points[0][i].x) * (points[1][i].x - points[0][i].x)
                   + (points[1][i].y - points[0][i].y) * (points[1][i].y - points[0][i].y))
              * sqrt((points[1][i].x - back_points[i].x) * (points[1][i].x - back_points[i].x)
                     + (points[1][i].y - back_points[i].y) * (points[1][i].y - back_points[i].y)));
-        if(theta < 0.8)
+        if(theta < 0.8){
+          if(!need_to_label_init){
+            //todo remove label
+          }
           continue;
+        }
 
         pcl::PointXYZ prevp = trimmedmean(prevcloud, tmp_prevp);
         pcl::PointXYZ nextp = trimmedmean(cloud, tmp_nextp);
@@ -484,7 +506,12 @@ namespace jsk_pcl_ros
            || isnan(nextp.z)
            || isnan(prevp.x)
            || isnan(prevp.y)
-           || isnan(prevp.z)) continue;
+           || isnan(prevp.z)){
+          if(!need_to_label_init){
+            //todo  remove label
+          }
+          continue;
+        }
 
         jsk_recognition_msgs::Flow3D flow_result;
         flow_result.point.x = nextp.x;
@@ -496,8 +523,55 @@ namespace jsk_pcl_ros
 
         if(fabs(flow_result.velocity.x) > 0.5
            ||fabs(flow_result.velocity.y) > 0.5
-           ||fabs(flow_result.velocity.z) > 0.5)
+           ||fabs(flow_result.velocity.z) > 0.5){
+          if(!need_to_label_init){
+            //todo  remove label
+          }
           continue;
+        }
+
+        if(need_to_label_init){
+          //new labelling
+          cv::Point3d point(flow_result.point.x - flow_result.velocity.x,
+                            flow_result.point.y - flow_result.velocity.y,
+                            flow_result.point.z - flow_result.velocity.z);
+            for(l = 0; l < labeled_boxes.size(); l++){
+              if(comparevertices(point, labeled_boxes.at(l))){
+                k++;
+                flow_label = l;
+              }
+            }
+            if(k == 1){
+              //checked_flows.at(flow_label).push_back(flow_result);
+              checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = flow_result;
+              flow_label_count.at(flow_label)++;
+              flow_labels.at(j) = labeled_boxes.at(flow_label).label;
+            } else {
+              flow_labels.at(j) = max_label + 1;
+            }
+        } else {
+          //apply label
+          if(flow_labels.at(i) <= max_label){
+            for(l = 0; l < labeled_boxes.size(); l++){
+              if(flow_labels.at(i) == labeled_boxes.at(l).label){
+                flow_label = l;
+                break;
+              }
+            }
+            /* cv::Point3d point(flow_result.point.x  - flow_result.velocity.x,
+               flow_result.point.y - flow_result.velocity.y,
+               flow_result.point.z - flow_result.velocity.z);
+               if(comparevertices(point,labeled_boxes.at(flow_label))){ */
+            if(1){
+              //checked_flows.at(flow_label).push_back(flow_result);
+              checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = flow_result;
+              flow_label_count.at(flow_label)++;
+              flow_labels.at(j) = flow_labels.at(i);
+            } else {
+              flow_labels.at(j) = max_label + 1;
+            }
+          }
+        }
 
         points[1][j++] = points[1][i];
 
@@ -517,6 +591,10 @@ namespace jsk_pcl_ros
           marker.points.push_back(flow_result.point);
         }
       }
+    for(i = 0; i < labeled_boxes.size(); i++){
+      checked_flows.at(i).resize(flow_label_count.at(i));
+    }
+    need_to_label_init = false;
     if(tracking_mode_){
       points[1].resize(j);
       std::swap(points[1],points[0]);
@@ -527,169 +605,20 @@ namespace jsk_pcl_ros
     pcl::copyPointCloud(*cloud, *prevcloud);
     flow.copyTo(flow_ptr->image);
     sensor_msgs::ImagePtr flow_image_msg = flow_ptr->toImageMsg();
-    image_pub_.publish(flow_image_msg);
-    result_pub_.publish(flows_result_msg);
-    if(publish_marker_)
-      vis_pub_.publish(marker);
-  }
 
-  //box_update
-    std::vector<jsk_recognition_msgs::Flow3D> unchecked_flows(flow->flows);
-    std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
+    /* === box update === */
     std::vector<jsk_recognition_msgs::Flow3D> translation_flows;
-    std::vector<jsk_recognition_msgs::Flow3D> tmp_unchecked_flows;
-    std::vector<int> flow_label_count(labeled_boxes.size(),0);
-    uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
-    size_t i,j;
-    int k;
-    uint flow_label; // not same as BoundingBox.label
-    //flow_lebeling
-    if(need_to_flow_init){
-      flow_labels.resize(unchecked_flows.size());
-    }
-    if(flow_labels.size() < unchecked_flows.size()){
-      flow_labels.resize(unchecked_flows.size());
-      need_to_flow_init = true;
-    }
-    checked_flows.resize(labeled_boxes.size());
-    for(i = 0; i < labeled_boxes.size(); i++){
-      checked_flows.at(i).resize(unchecked_flows.size());
-    }
     translation_flows.resize(labeled_boxes.size());
-    if(need_to_flow_init ||
-       flow_labels.size() > unchecked_flows.size()){
-      for(i = 0; i < unchecked_flows.size(); i++){
-        cv::Point3d point(unchecked_flows.at(i).point.x - unchecked_flows.at(i).velocity.x, unchecked_flows.at(i).point.y - unchecked_flows.at(i).velocity.y, unchecked_flows.at(i).point.z - unchecked_flows.at(i).velocity.z);
-        k = 0;
-        for(j = 0; j < labeled_boxes.size(); j++){
-          if(comparevertices(point, labeled_boxes.at(j))){
-            k++;
-            flow_label = j;
-          }
-        }
-        if(k == 1){
-          checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
-          checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
-          flow_label_count.at(flow_label)++;
-          flow_labels.at(i) = labeled_boxes.at(flow_label).label;
-        } else {
-          flow_labels.at(i) = max_label + 1;
-        }
-      }
-      for(i = 0; i < labeled_boxes.size(); i++){
-        checked_flows.at(i).resize(flow_label_count.at(i));
-      }
-      copy_unchecked_flows = unchecked_flows;
-      need_to_flow_init = false;
-    } else if (flow_labels.size() == unchecked_flows.size()){
-      std::cout << "test1 max_label " << max_label << " "; 
-      for(i = 0; i < unchecked_flows.size() ; i++){
-        if(flow_labels.at(i) <= max_label){
-          for(j = 0; j < labeled_boxes.size(); j++){
-            if(flow_labels.at(i) == labeled_boxes.at(j).label){
-              flow_label = j;
-              break;
-            }
-          }
-          cv::Point3d point(unchecked_flows.at(i).point.x  - unchecked_flows.at(i).velocity.x, unchecked_flows.at(i).point.y - unchecked_flows.at(i).velocity.y, unchecked_flows.at(i).point.z - unchecked_flows.at(i).velocity.z);
-//          if(comparevertices(point,labeled_boxes.at(flow_label))){
-          if(1){
-            checked_flows.at(flow_label).push_back(unchecked_flows.at(i));
-            checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(i);
-            flow_label_count.at(flow_label)++;
-          } else {
-            flow_labels.at(i) = max_label + 1;
-          }
-        }
-      }
-      for(i = 0; i < labeled_boxes.size(); i++){
-        checked_flows.at(i).resize(flow_label_count.at(i));
-      }
-      
-    } else if(flow_labels.size() > unchecked_flows.size()){ //disabled
-      int diff = flow_labels.size() - unchecked_flows.size();
-      std::cout << "test2 max_label " << max_label << " diff " << diff; 
-      k = 0;
-      j = 0;
-      for(i = 0; i < copy_unchecked_flows.size() ; i++){
-        if(j == unchecked_flows.size()){
-          std::cout << "Failed to update flow_labels" << std::endl;
-          need_to_flow_init = true;
-          return;
-        }
-        if(k == diff) {
-          if(flow_labels.at(i - k) <= max_label){
-            size_t l;
-            for(l = 0; l < labeled_boxes.size(); l++){
-              if(flow_labels.at(i - k) == labeled_boxes.at(l).label){
-                flow_label = l;
-                break;
-              }
-            }
-            //cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
-            //if(comparevertices(point, labeled_boxes.at(flow_label))){
-            if(1){
-              checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
-              checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
-              flow_label_count.at(flow_label)++;
-            } else {
-              flow_labels.at(j) = max_label + 1;
-            }
-          }
-          j++;
-        } else {
-          float dist_x = unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x - copy_unchecked_flows.at(i).point.x;
-          float dist_y = unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y - copy_unchecked_flows.at(i).point.y;
-          float dist_z = unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z - copy_unchecked_flows.at(i).point.z;
-          float dist = sqrt(dist_x * dist_x + dist_y * dist_y + dist_z * dist_z);
-          if(dist < 0.0001){
-            if(flow_labels.at(i - k) <= max_label){
-              size_t l;
-              for(l = 0; l < labeled_boxes.size(); l++){
-                if(flow_labels.at(i - k) == labeled_boxes.at(l).label){
-                  flow_label = l;
-                  break;
-                }
-              }
-              //cv::Point3d point(unchecked_flows.at(j).point.x - unchecked_flows.at(j).velocity.x, unchecked_flows.at(j).point.y - unchecked_flows.at(j).velocity.y, unchecked_flows.at(j).point.z - unchecked_flows.at(j).velocity.z);
-              //if(comparevertices(point, labeled_boxes.at(flow_label))){
-              if(1){
-                checked_flows.at(flow_label).push_back(unchecked_flows.at(j));
-                checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = unchecked_flows.at(j);
-                flow_label_count.at(flow_label)++;
-              } else {
-                flow_labels.at(j) = max_label + 1;
-              }
-            }
-            tmp_unchecked_flows.push_back(unchecked_flows.at(j));
-            j++;
-          } else {
-            flow_labels.erase(flow_labels.begin() + i - k);
-            k++;
-          }
-        }
-      }
-      for(i = 0; i < checked_flows.size(); i++){
-        checked_flows.at(i).resize(flow_label_count.at(i));
-      }
-      if(j != unchecked_flows.size())std::cout << "flow_labels update error" << std::endl;
-      tmp_unchecked_flows.resize(j);
-      copy_unchecked_flows = tmp_unchecked_flows;
-    }
-    std::cout << std::endl;
     //calc translation_flows
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
+        translation_flows.at(i).velocity.x = 0.0;
+        translation_flows.at(i).velocity.y = 0.0;
+        translation_flows.at(i).velocity.z = 0.0;
         for(j = 0; j < checked_flows.at(i).size(); j++){
-          if(j == 0){
-            translation_flows.at(i).velocity.x = checked_flows.at(i).at(j).velocity.x;
-            translation_flows.at(i).velocity.y = checked_flows.at(i).at(j).velocity.y;
-            translation_flows.at(i).velocity.z = checked_flows.at(i).at(j).velocity.z;
-          } else {
             translation_flows.at(i).velocity.x += checked_flows.at(i).at(j).velocity.x;
             translation_flows.at(i).velocity.y += checked_flows.at(i).at(j).velocity.y;
             translation_flows.at(i).velocity.z += checked_flows.at(i).at(j).velocity.z;
-          }
         }
         translation_flows.at(i).velocity.x /= (float)checked_flows.at(i).size();
         translation_flows.at(i).velocity.y /= (float)checked_flows.at(i).size();
@@ -708,11 +637,10 @@ namespace jsk_pcl_ros
           checked_flows.at(i).at(j).velocity.y -= translation_flows.at(i).velocity.y;
           checked_flows.at(i).at(j).velocity.z -= translation_flows.at(i).velocity.z;
         }
-
       }
     }
 
-    //calc_variance
+    //calc_rotate_variance
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
         Eigen::Quaternionf mean_q(0.0, 0.0, 0.0, 0.0);
@@ -774,7 +702,7 @@ namespace jsk_pcl_ros
           labeled_boxes.at(i).value = 1;
         }
         //update box.header
-        labeled_boxes.at(i).header = flow->header; 
+        labeled_boxes.at(i).header = image_msg->header;
       }
     }
     
@@ -803,10 +731,16 @@ namespace jsk_pcl_ros
     std::cout << std::endl;
     
     jsk_recognition_msgs::BoundingBoxArray box_msg;
-    box_msg.header = flow->header;
+    box_msg.header = image_msg->header;
     for(i = 0; i < labeled_boxes.size(); i++){
       box_msg.boxes.push_back(labeled_boxes.at(i));
     }
+
+    //publish messages
+    image_pub_.publish(flow_image_msg);
+    result_pub_.publish(flows_result_msg);
+    if(publish_marker_)
+      vis_pub_.publish(marker);
     box_pub_.publish(box_msg);
   }
 }

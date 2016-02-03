@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH ifndef.
  *********************************************************************/
 
-#DAMAGE JSK_PCL_ROS_FLOW_TRACKING_H_
+#ifndef JSK_PCL_ROS_FLOW_TRACKING_H_
 #define JSK_PCL_ROS_FLOW_TRACKING_H_
 
 #include <ros/ros.h>
@@ -124,15 +124,14 @@ namespace jsk_pcl_ros
     int _maxLevel;
     cv::Mat prevImg;
     cv::Mat flow;
-    bool need_to_init;
+    bool need_to_flow_init;
     std::vector<cv::Point2f> points[2];
     pcl::PointCloud<pcl::PointXYZ>::Ptr prevcloud;
     std::vector<jsk_recognition_msgs::BoundingBox> labeled_boxes;
     std::vector<jsk_recognition_msgs::BoundingBox> copy_labeled_boxes;
-    std::vector<jsk_recognition_msgs::Flow3D> copy_unchecked_flows;
     std::vector<float> boxes_translate;
     std::vector<uint> flow_labels;
-    bool need_to_flow_init;
+    bool need_to_label_init;
   };
 
 }
