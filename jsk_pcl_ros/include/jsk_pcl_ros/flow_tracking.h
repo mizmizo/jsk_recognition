@@ -1,4 +1,4 @@
-// -*- mode: c++ -*-
+// -*- mode: C++ -*-
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
@@ -30,30 +30,46 @@
  *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
  *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
+ *  POSSIBILITY OF SUCH ifndef.
  *********************************************************************/
 
+#DAMAGE JSK_PCL_ROS_FLOW_TRACKING_H_
+#define JSK_PCL_ROS_FLOW_TRACKING_H_
 
-#ifndef JSK_PCL_ROS_CALC_3D_FLOW_H_
-#define JSK_PCL_ROS_CALC_3D_FLOW_H_
+#include <ros/ros.h>
+#include <ros/names.h>
+#include <cv_bridge/cv_bridge.h>
+#include "jsk_recognition_msgs/ClusterPointIndices.h"
+#include "jsk_recognition_msgs/PolygonArray.h"
+#include "jsk_recognition_msgs/ModelCoefficientsArray.h"
 
-#include <jsk_topic_tools/diagnostic_nodelet.h>
-
+#include "sensor_msgs/PointCloud2.h"
+#include <pcl_ros/pcl_nodelet.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <pcl_conversions/pcl_conversions.h>
-
+#include <pcl/point_types.h>
+#include <pcl/impl/point_types.hpp>
+#include <tf/transform_broadcaster.h>
+#include <jsk_recognition_msgs/BoundingBoxArray.h>
+#include <jsk_recognition_msgs/Flow3DArrayStamped.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
 #include <std_srvs/Empty.h>
 
+#include <diagnostic_updater/diagnostic_updater.h>
+#include <diagnostic_updater/publisher.h>
+#include "jsk_pcl_ros/pcl_util.h"
+#include <jsk_topic_tools/vital_checker.h>
+#include "jsk_topic_tools/diagnostic_nodelet.h"
+
 namespace jsk_pcl_ros
 {
-  class Calc3DFlow: public jsk_topic_tools::DiagnosticNodelet
+  class FlowTracking: public jsk_topic_tools::DiagnosticNodelet
   {
   public:
     typedef message_filters::sync_policies::ExactTime<
@@ -64,20 +80,38 @@ namespace jsk_pcl_ros
     sensor_msgs::PointCloud2,
     sensor_msgs::Image
     >  ApproximateSyncPolicy;
-    Calc3DFlow(): DiagnosticNodelet("Calc3DFlow") { }
-  protected:
+    FlowTracking(): DiagnosticNodelet("FlowTracking") { }
     virtual void onInit();
-    virtual void subscribe();
-    virtual void unsubscribe();
     virtual pcl::PointXYZ trimmedmean(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
       cv::Point2i point);
-    virtual void calc3Dflow(
+    virtual bool comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
+                            uint* label);
+    virtual std::vector<cv::Point3d> getVertices(const jsk_recognition_msgs::BoundingBox& box);
+    virtual bool comparevertices(const cv::Point3d& vertices,
+                                         const jsk_recognition_msgs::BoundingBox& compared_box);
+    virtual void box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box);
+    virtual void flow_extract(
       const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
       const sensor_msgs::Image::ConstPtr& image_msg);
+  protected:
+    virtual void subscribe();
+    virtual void unsubscribe();
     virtual bool initServiceCallback(
       std_srvs::Empty::Request& req,
       std_srvs::Empty::Response& res);
+
+    message_filters::Subscriber<sensor_msgs::PointCloud2> sub_cloud_;
+    message_filters::Subscriber<sensor_msgs::Image> sub_image_;
+    boost::shared_ptr<message_filters::Synchronizer<SyncPolicy> >sync_;
+    boost::shared_ptr<message_filters::Synchronizer<ApproximateSyncPolicy> >async_;
+    ros::Subscriber sub_box_;
+    boost::mutex mutex_;
+    ros::Publisher box_pub_;
+    ros::Publisher image_pub_;
+    ros::Publisher result_pub_;
+    ros::Publisher vis_pub_;
+    ros::ServiceServer init_srv_;
     bool approximate_sync_;
     bool publish_marker_;
     bool tracking_mode_;
@@ -88,22 +122,19 @@ namespace jsk_pcl_ros
     int _subPixWinSize;
     int _winSize;
     int _maxLevel;
-    message_filters::Subscriber<sensor_msgs::PointCloud2> sub_cloud_;
-    message_filters::Subscriber<sensor_msgs::Image> sub_image_;
-    boost::shared_ptr<message_filters::Synchronizer<SyncPolicy> >sync_;
-    boost::shared_ptr<message_filters::Synchronizer<ApproximateSyncPolicy> >async_;
-    ros::Publisher pub_;
-    ros::Publisher image_pub_;
-    ros::Publisher result_pub_;
-    ros::Publisher vis_pub_;
-    ros::ServiceServer init_srv_;
     cv::Mat prevImg;
     cv::Mat flow;
     bool need_to_init;
     std::vector<cv::Point2f> points[2];
     pcl::PointCloud<pcl::PointXYZ>::Ptr prevcloud;
-  private:
+    std::vector<jsk_recognition_msgs::BoundingBox> labeled_boxes;
+    std::vector<jsk_recognition_msgs::BoundingBox> copy_labeled_boxes;
+    std::vector<jsk_recognition_msgs::Flow3D> copy_unchecked_flows;
+    std::vector<float> boxes_translate;
+    std::vector<uint> flow_labels;
+    bool need_to_flow_init;
   };
+
 }
 
 #endif
