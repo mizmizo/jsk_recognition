@@ -2,7 +2,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2015, JSK Lab
+ *  Copyright (c) 2016, JSK Lab
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -115,6 +115,7 @@ namespace jsk_pcl_ros
     bool approximate_sync_;
     bool publish_marker_;
     bool tracking_mode_;
+    bool check_deformation_;
     int _maxCorners;
     double _qualityLevel;
     double _minDistance;

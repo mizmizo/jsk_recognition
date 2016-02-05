@@ -2,7 +2,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2015, JSK Lab
+ *  Copyright (c) 2016, JSK Lab
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -67,6 +67,7 @@ namespace jsk_pcl_ros
     pnh_->param("tracking_mode", tracking_mode_, true);
     pnh_->param("approximate_sync", approximate_sync_, true);
     pnh_->param("publish_marker", publish_marker_, true);
+    pnh_->param("check_deformation", check_deformation_, false);
     box_pub_ = advertise<jsk_recognition_msgs::BoundingBoxArray>(*pnh_, "output/boxes", 1);
     result_pub_ = advertise<jsk_recognition_msgs::Flow3DArrayStamped>(
       *pnh_, "output/flow", 1);
@@ -247,6 +248,7 @@ namespace jsk_pcl_ros
     std_srvs::Empty::Response& res)
   {
     need_to_flow_init = true;
+    std::cout << "flow init (service)" << std::endl;
     need_to_label_init = true;
     return true;
   }
@@ -395,6 +397,7 @@ namespace jsk_pcl_ros
 
     if(points[0].size() == 0){
       need_to_flow_init = true;
+      std::cout << "flow init (zero flows)" << std::endl;
       need_to_label_init = true;
     }
     if(need_to_flow_init){
@@ -453,8 +456,7 @@ namespace jsk_pcl_ros
     std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
     std::vector<int> flow_label_count(labeled_boxes.size(),0);
     uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
-    size_t i, j, l, m;
-    size_t k = 0;
+    size_t i, j, k,l, m;
     uint flow_label; // not same as BoundingBox.label
     if(need_to_label_init){
       flow_labels.resize(features_found.size());
@@ -535,6 +537,7 @@ namespace jsk_pcl_ros
           cv::Point3d point(flow_result.point.x - flow_result.velocity.x,
                             flow_result.point.y - flow_result.velocity.y,
                             flow_result.point.z - flow_result.velocity.z);
+          k = 0;
             for(l = 0; l < labeled_boxes.size(); l++){
               if(comparevertices(point, labeled_boxes.at(l))){
                 k++;
@@ -679,27 +682,44 @@ namespace jsk_pcl_ros
           + (square_mean_q.y() - mean_q.y() * mean_q.y())
           + (square_mean_q.z() - mean_q.z() * mean_q.z());
         std::cout << "variance : " << flow_variance << std::endl;
-        if(flow_variance < thre){
-          //update_boundingbox
-          labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
-          labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
-          labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
-          Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
-                                    labeled_boxes.at(i).pose.orientation.x,
-                                    labeled_boxes.at(i).pose.orientation.y,
-                                    labeled_boxes.at(i).pose.orientation.z);
-          Eigen::Quaternionf next_q = mean_q * prev_q;
-          labeled_boxes.at(i).pose.orientation.w = next_q.w();
-          labeled_boxes.at(i).pose.orientation.x = next_q.x();
-          labeled_boxes.at(i).pose.orientation.y = next_q.y();
-          labeled_boxes.at(i).pose.orientation.z = next_q.z();
-          if(labeled_boxes.at(i).value != 1)
-            labeled_boxes.at(i).value = 0;
+        if(check_deformation_){
+          if(flow_variance < thre){
+            //update_boundingbox
+            labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
+            labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
+            labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
+            Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
+                                      labeled_boxes.at(i).pose.orientation.x,
+                                      labeled_boxes.at(i).pose.orientation.y,
+                                      labeled_boxes.at(i).pose.orientation.z);
+            Eigen::Quaternionf next_q = mean_q * prev_q;
+            labeled_boxes.at(i).pose.orientation.w = next_q.w();
+            labeled_boxes.at(i).pose.orientation.x = next_q.x();
+            labeled_boxes.at(i).pose.orientation.y = next_q.y();
+            labeled_boxes.at(i).pose.orientation.z = next_q.z();
+            if(labeled_boxes.at(i).value != 1)
+              labeled_boxes.at(i).value = 0;
+          } else {
+            labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
+            labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
+            labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
+            labeled_boxes.at(i).value = 1;
+          }
         } else {
-          labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
-          labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
-          labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
-          labeled_boxes.at(i).value = 1;
+            labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
+            labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
+            labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
+            Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
+                                      labeled_boxes.at(i).pose.orientation.x,
+                                      labeled_boxes.at(i).pose.orientation.y,
+                                      labeled_boxes.at(i).pose.orientation.z);
+            Eigen::Quaternionf next_q = mean_q * prev_q;
+            labeled_boxes.at(i).pose.orientation.w = next_q.w();
+            labeled_boxes.at(i).pose.orientation.x = next_q.x();
+            labeled_boxes.at(i).pose.orientation.y = next_q.y();
+            labeled_boxes.at(i).pose.orientation.z = next_q.z();
+            if(labeled_boxes.at(i).value != 1)
+              labeled_boxes.at(i).value = 0;
         }
         //update box.header
         labeled_boxes.at(i).header = image_msg->header;
