@@ -66,6 +66,7 @@
 #include "jsk_pcl_ros/pcl_util.h"
 #include <jsk_topic_tools/vital_checker.h>
 #include "jsk_topic_tools/diagnostic_nodelet.h"
+#include <Eigen/Geometry>
 
 namespace jsk_pcl_ros
 {
@@ -130,7 +131,9 @@ namespace jsk_pcl_ros
     pcl::PointCloud<pcl::PointXYZ>::Ptr prevcloud;
     std::vector<jsk_recognition_msgs::BoundingBox> labeled_boxes;
     std::vector<jsk_recognition_msgs::BoundingBox> copy_labeled_boxes;
-    std::vector<float> boxes_translate;
+    std::vector<float> boxes_translate; //unneeded?
+    std::vector<Eigen::Quaternionf> g_translations;
+    std::vector<std::vector <Eigen::Quaternionf> > flow_positions;
     std::vector<uint> flow_labels;
     bool need_to_label_init;
   };

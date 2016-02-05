@@ -46,7 +46,6 @@
 #include <pcl/filters/project_inliers.h>
 #include <sensor_msgs/image_encodings.h>
 #include <jsk_topic_tools/color_utils.h>
-#include <Eigen/Geometry>
 
 #include "jsk_pcl_ros/geo_util.h"
 #include "jsk_pcl_ros/pcl_conversion_util.h"
@@ -269,8 +268,10 @@ namespace jsk_pcl_ros
           std::vector<jsk_recognition_msgs::BoundingBox> tmp_boxes;
           tmp_boxes.resize(box->boxes.size() + boxes_size);
           bool is_translated = false;
-          for(i = 0; i < boxes_translate.size(); i++){
-            if(boxes_translate.at(i) > 0.01){
+          for(i = 0; i < labeled_boxes.size(); i++){
+            if(fabs(labeled_boxes.at(i).pose.position.x - copy_labeled_boxes.at(i).pose.position.x) > 0.01 ||
+               fabs(labeled_boxes.at(i).pose.position.y - copy_labeled_boxes.at(i).pose.position.y) > 0.01 ||
+               fabs(labeled_boxes.at(i).pose.position.z - copy_labeled_boxes.at(i).pose.position.z) > 0.01){
               is_translated = true;
               break;
             }
@@ -456,7 +457,7 @@ namespace jsk_pcl_ros
     std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
     std::vector<int> flow_label_count(labeled_boxes.size(),0);
     uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
-    size_t i, j, k,l, m;
+    size_t i, j, k, l, m;
     uint flow_label; // not same as BoundingBox.label
     if(need_to_label_init){
       flow_labels.resize(features_found.size());
@@ -482,7 +483,15 @@ namespace jsk_pcl_ros
            || tmp_nextp.x < 2
            || tmp_nextp.y < 2 ){
           if(!need_to_label_init){
-            //todo  remove label
+            //remove label and flow_positions
+            for(l = 0; l < labeled_boxes.size(); l++){
+              if(flow_labels.at(j) == labeled_boxes.at(l).label){
+                flow_label = l;
+                break;
+              }
+            }
+            flow_positions.at(flow_label).erase(flow_positions.at(flow_label).begin() + flow_label_count.at(flow_label));
+            flow_labels.erase(flow_labels.begin() + j);
           }
           continue;
         }
@@ -496,7 +505,15 @@ namespace jsk_pcl_ros
                     + (points[1][i].y - back_points[i].y) * (points[1][i].y - back_points[i].y)));
         if(theta < 0.8){
           if(!need_to_label_init){
-            //todo remove label
+            //remove label and flow_positions
+            for(l = 0; l < labeled_boxes.size(); l++){
+              if(flow_labels.at(j) == labeled_boxes.at(l).label){
+                flow_label = l;
+                break;
+              }
+            }
+            flow_positions.at(flow_label).erase(flow_positions.at(flow_label).begin() + flow_label_count.at(flow_label));
+            flow_labels.erase(flow_labels.begin() + j);
           }
           continue;
         }
@@ -510,7 +527,15 @@ namespace jsk_pcl_ros
            || isnan(prevp.y)
            || isnan(prevp.z)){
           if(!need_to_label_init){
-            //todo  remove label
+            //remove label and flow_positions
+            for(l = 0; l < labeled_boxes.size(); l++){
+              if(flow_labels.at(j) == labeled_boxes.at(l).label){
+                flow_label = l;
+                break;
+              }
+            }
+            flow_positions.at(flow_label).erase(flow_positions.at(flow_label).begin() + flow_label_count.at(flow_label));
+            flow_labels.erase(flow_labels.begin() + j);
           }
           continue;
         }
@@ -527,7 +552,15 @@ namespace jsk_pcl_ros
            ||fabs(flow_result.velocity.y) > 0.5
            ||fabs(flow_result.velocity.z) > 0.5){
           if(!need_to_label_init){
-            //todo  remove label
+            //remove label and flow_positions
+            for(l = 0; l < labeled_boxes.size(); l++){
+              if(flow_labels.at(j) == labeled_boxes.at(l).label){
+                flow_label = l;
+                break;
+              }
+            }
+            flow_positions.at(flow_label).erase(flow_positions.at(flow_label).begin() + (flow_label_count.at(flow_label)));
+            flow_labels.erase(flow_labels.begin() + j);
           }
           continue;
         }
@@ -597,7 +630,6 @@ namespace jsk_pcl_ros
     for(i = 0; i < labeled_boxes.size(); i++){
       checked_flows.at(i).resize(flow_label_count.at(i));
     }
-    need_to_label_init = false;
     if(tracking_mode_){
       points[1].resize(j);
       std::swap(points[1],points[0]);
@@ -610,37 +642,50 @@ namespace jsk_pcl_ros
     sensor_msgs::ImagePtr flow_image_msg = flow_ptr->toImageMsg();
 
     /* === box update === */
-    std::vector<jsk_recognition_msgs::Flow3D> translation_flows;
-    translation_flows.resize(labeled_boxes.size());
-    //calc translation_flows
+    std::vector<Eigen::Vector3f> mean_pos;
+    mean_pos.resize(labeled_boxes.size());
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
-        translation_flows.at(i).velocity.x = 0.0;
-        translation_flows.at(i).velocity.y = 0.0;
-        translation_flows.at(i).velocity.z = 0.0;
+        mean_pos.at(i).x() = 0.0;
+        mean_pos.at(i).y() = 0.0;
+        mean_pos.at(i).z() = 0.0;
         for(j = 0; j < checked_flows.at(i).size(); j++){
-            translation_flows.at(i).velocity.x += checked_flows.at(i).at(j).velocity.x;
-            translation_flows.at(i).velocity.y += checked_flows.at(i).at(j).velocity.y;
-            translation_flows.at(i).velocity.z += checked_flows.at(i).at(j).velocity.z;
+          mean_pos.at(i).x() += checked_flows.at(i).at(j).point.x;
+          mean_pos.at(i).y() += checked_flows.at(i).at(j).point.y;
+          mean_pos.at(i).z() += checked_flows.at(i).at(j).point.z;
         }
-        translation_flows.at(i).velocity.x /= (float)checked_flows.at(i).size();
-        translation_flows.at(i).velocity.y /= (float)checked_flows.at(i).size();
-        translation_flows.at(i).velocity.z /= (float)checked_flows.at(i).size();
-        boxes_translate.at(i) += sqrt(translation_flows.at(i).velocity.x * translation_flows.at(i).velocity.x
-                                      + translation_flows.at(i).velocity.y * translation_flows.at(i).velocity.y
-                                      + translation_flows.at(i).velocity.z * translation_flows.at(i).velocity.z);
+        mean_pos.at(i).x() /= (float)checked_flows.at(i).size();
+        mean_pos.at(i).y() /= (float)checked_flows.at(i).size();
+        mean_pos.at(i).z() /= (float)checked_flows.at(i).size();
       }
-      std::cout << "box " << labeled_boxes.at(i).label << " flow_size " << checked_flows.at(i).size() <<" translate " << translation_flows.at(i).velocity.x << " " << translation_flows.at(i).velocity.y << " " << translation_flows.at(i).velocity.z << std::endl;
     }
 
-    for(i = 0; i < checked_flows.size(); i++){
-      if(checked_flows.at(i).size() > 0){
-        for(j = 0; j < checked_flows.at(i).size(); j++){
-          checked_flows.at(i).at(j).velocity.x -= translation_flows.at(i).velocity.x;
-          checked_flows.at(i).at(j).velocity.y -= translation_flows.at(i).velocity.y;
-          checked_flows.at(i).at(j).velocity.z -= translation_flows.at(i).velocity.z;
+    if(need_to_label_init){
+      g_translations.resize(labeled_boxes.size());
+      flow_positions.resize(labeled_boxes.size());
+      for(i = 0; i < labeled_boxes.size(); i++){
+        if(checked_flows.at(i).size() > 0){
+          Eigen::Quaternionf init_box_q(labeled_boxes.at(i).pose.orientation.w,
+                                   labeled_boxes.at(i).pose.orientation.x,
+                                   labeled_boxes.at(i).pose.orientation.y,
+                                   labeled_boxes.at(i).pose.orientation.z);
+          Eigen::Quaternionf init_g_translate(0.0,
+                                              labeled_boxes.at(i).pose.position.x - mean_pos.at(i).x(),
+                                              labeled_boxes.at(i).pose.position.y - mean_pos.at(i).y(),
+                                              labeled_boxes.at(i).pose.position.z - mean_pos.at(i).z());
+          g_translations.at(i) = init_box_q.inverse() * init_g_translate * init_box_q;
+
+          flow_positions.at(i).resize(checked_flows.at(i).size());
+          for(j = 0; j < checked_flows.at(i).size(); j++){
+            Eigen::Quaternionf init_flow_pos(0.0,
+                                             checked_flows.at(i).at(j).point.x - mean_pos.at(i).x(),
+                                             checked_flows.at(i).at(j).point.y - mean_pos.at(i).y(),
+                                             checked_flows.at(i).at(j).point.z - mean_pos.at(i).z());
+              flow_positions.at(i).at(j) = init_box_q.inverse() * init_flow_pos * init_box_q;
+          }
         }
       }
+      need_to_label_init = false;
     }
 
     //calc_rotate_variance
@@ -649,15 +694,11 @@ namespace jsk_pcl_ros
         Eigen::Quaternionf mean_q(0.0, 0.0, 0.0, 0.0);
         Eigen::Quaternionf square_mean_q(0.0, 0.0, 0.0, 0.0);
         for(j = 0; j < checked_flows.at(i).size(); j++){
-          Eigen::Vector3f flow_pos(checked_flows.at(i).at(j).point.x - labeled_boxes.at(i).pose.position.x,
-                                   checked_flows.at(i).at(j).point.y - labeled_boxes.at(i).pose.position.y,
-                                   checked_flows.at(i).at(j).point.z - labeled_boxes.at(i).pose.position.z);
-          Eigen::Vector3f flow_target(flow_pos.x() + checked_flows.at(i).at(j).velocity.x,
-                                      flow_pos.y() + checked_flows.at(i).at(j).velocity.y,
-                                      flow_pos.z() + checked_flows.at(i).at(j).velocity.z);
+          Eigen::Vector3f flow_pos(checked_flows.at(i).at(j).point.x - mean_pos.at(i).x(),
+                                   checked_flows.at(i).at(j).point.y - mean_pos.at(i).y(),
+                                   checked_flows.at(i).at(j).point.z - mean_pos.at(i).z());
           Eigen::Quaternionf tmp_q;
-          tmp_q.setFromTwoVectors(flow_pos, flow_target);
-          
+          tmp_q.setFromTwoVectors(flow_pos, flow_positions.at(i).at(j).vec());
           mean_q.w() += tmp_q.w();
           mean_q.x() += tmp_q.x();
           mean_q.y() += tmp_q.y();
@@ -667,7 +708,6 @@ namespace jsk_pcl_ros
           square_mean_q.y() += tmp_q.y() * tmp_q.y();
           square_mean_q.z() += tmp_q.z() * tmp_q.z();
         }
-        float thre = 0.00007;
         mean_q.w() /= checked_flows.at(i).size();
         mean_q.x() /= checked_flows.at(i).size();
         mean_q.y() /= checked_flows.at(i).size();
@@ -683,52 +723,49 @@ namespace jsk_pcl_ros
           + (square_mean_q.z() - mean_q.z() * mean_q.z());
         std::cout << "variance : " << flow_variance << std::endl;
         if(check_deformation_){
+          float thre = 0.00007;
           if(flow_variance < thre){
-            //update_boundingbox
-            labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
-            labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
-            labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
-            Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
-                                      labeled_boxes.at(i).pose.orientation.x,
-                                      labeled_boxes.at(i).pose.orientation.y,
-                                      labeled_boxes.at(i).pose.orientation.z);
-            Eigen::Quaternionf next_q = mean_q * prev_q;
-            labeled_boxes.at(i).pose.orientation.w = next_q.w();
-            labeled_boxes.at(i).pose.orientation.x = next_q.x();
-            labeled_boxes.at(i).pose.orientation.y = next_q.y();
-            labeled_boxes.at(i).pose.orientation.z = next_q.z();
+            Eigen::Quaternionf g_translate = mean_q * (g_translations.at(i)) * mean_q.inverse();
+            labeled_boxes.at(i).pose.position.x = mean_pos.at(i).x() + g_translate.x();
+            labeled_boxes.at(i).pose.position.y = mean_pos.at(i).y() + g_translate.y();
+            labeled_boxes.at(i).pose.position.z = mean_pos.at(i).z() + g_translate.z();
+            labeled_boxes.at(i).pose.orientation.w = mean_q.w();
+            labeled_boxes.at(i).pose.orientation.x = mean_q.x();
+            labeled_boxes.at(i).pose.orientation.y = mean_q.y();
+            labeled_boxes.at(i).pose.orientation.z = mean_q.z();
             if(labeled_boxes.at(i).value != 1)
               labeled_boxes.at(i).value = 0;
           } else {
-            labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
-            labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
-            labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
+            Eigen::Quaternionf box_q(labeled_boxes.at(i).pose.orientation.w,
+                                     labeled_boxes.at(i).pose.orientation.x,
+                                     labeled_boxes.at(i).pose.orientation.y,
+                                     labeled_boxes.at(i).pose.orientation.z);
+            Eigen::Quaternionf g_translate = box_q * (g_translations.at(i)) * box_q.inverse();
+            labeled_boxes.at(i).pose.position.x = mean_pos.at(i).x() + g_translate.x();
+            labeled_boxes.at(i).pose.position.y = mean_pos.at(i).y() + g_translate.y();
+            labeled_boxes.at(i).pose.position.z = mean_pos.at(i).z() + g_translate.z();
             labeled_boxes.at(i).value = 1;
           }
         } else {
-            labeled_boxes.at(i).pose.position.x += translation_flows.at(i).velocity.x;
-            labeled_boxes.at(i).pose.position.y += translation_flows.at(i).velocity.y;
-            labeled_boxes.at(i).pose.position.z += translation_flows.at(i).velocity.z;
-            Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
-                                      labeled_boxes.at(i).pose.orientation.x,
-                                      labeled_boxes.at(i).pose.orientation.y,
-                                      labeled_boxes.at(i).pose.orientation.z);
-            Eigen::Quaternionf next_q = mean_q * prev_q;
-            labeled_boxes.at(i).pose.orientation.w = next_q.w();
-            labeled_boxes.at(i).pose.orientation.x = next_q.x();
-            labeled_boxes.at(i).pose.orientation.y = next_q.y();
-            labeled_boxes.at(i).pose.orientation.z = next_q.z();
-            if(labeled_boxes.at(i).value != 1)
-              labeled_boxes.at(i).value = 0;
+          Eigen::Quaternionf g_translate = mean_q * (g_translations.at(i)) * mean_q.inverse();
+          labeled_boxes.at(i).pose.position.x = mean_pos.at(i).x() + g_translate.x();
+          labeled_boxes.at(i).pose.position.y = mean_pos.at(i).y() + g_translate.y();
+          labeled_boxes.at(i).pose.position.z = mean_pos.at(i).z() + g_translate.z();
+          labeled_boxes.at(i).pose.orientation.w = mean_q.w();
+          labeled_boxes.at(i).pose.orientation.x = mean_q.x();
+          labeled_boxes.at(i).pose.orientation.y = mean_q.y();
+          labeled_boxes.at(i).pose.orientation.z = mean_q.z();
+          if(labeled_boxes.at(i).value != 1)
+            labeled_boxes.at(i).value = 0;
         }
         //update box.header
         labeled_boxes.at(i).header = image_msg->header;
       }
     }
-    
+
     k = 0;
     for(i = 0; i < checked_flows.size(); i++){
-      if(checked_flows.at(i).size() == 0){
+      if(checked_flows.at(i).size() < 3){
         for(j = 0; j < flow_labels.size(); j++){
           if(flow_labels.at(j) == labeled_boxes.at(i - k).label){
             flow_labels.at(j) = max_label + 2;
@@ -749,7 +786,7 @@ namespace jsk_pcl_ros
       std::cout << flow_labels.at(i) << " " ;
     }
     std::cout << std::endl;
-    
+
     jsk_recognition_msgs::BoundingBoxArray box_msg;
     box_msg.header = image_msg->header;
     for(i = 0; i < labeled_boxes.size(); i++){
