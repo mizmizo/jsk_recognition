@@ -242,6 +242,24 @@ namespace jsk_pcl_ros
     }
   }
 
+  Eigen::MatrixXf FlowTracking::pseudoinverse(const Eigen::MatrixXf& m)
+  {
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(m, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::VectorXf sigma(svd.singularValues());
+    Eigen::VectorXf sigma_inv;
+    sigma_inv.resize(sigma.size());
+    size_t i;
+    double tolerance = 1.0e-6;
+    for(long i=0; i<sigma.size(); i++)
+      {
+        if(sigma(i) > tolerance)
+          sigma_inv(i)= 1.0/sigma(i);
+        else
+          sigma_inv(i)= 0.0;
+      }
+    return svd.matrixV() * sigma_inv.asDiagonal() * svd.matrixU().transpose();
+  }
+
   bool FlowTracking::initServiceCallback(
     std_srvs::Empty::Request& req,
     std_srvs::Empty::Response& res)
@@ -335,6 +353,7 @@ namespace jsk_pcl_ros
           tmp_box.label = i;
           labeled_boxes.push_back(tmp_box);
         }
+        need_to_flow_init = true;
         need_to_label_init = true;
       }
     }
@@ -395,10 +414,9 @@ namespace jsk_pcl_ros
       JSK_ROS_INFO("return");
       return;
     }
-
-    if(points[0].size() == 0){
+    if(points[0].size() < 4){
       need_to_flow_init = true;
-      std::cout << "flow init (zero flows)" << std::endl;
+      std::cout << "flow init (few flows)" << std::endl;
       need_to_label_init = true;
     }
     if(need_to_flow_init){
@@ -429,7 +447,6 @@ namespace jsk_pcl_ros
     cv::calcOpticalFlowPyrLK(nextImg, prevImg, points[1], back_points, back_features_found, back_feature_errors,
                              cv::Size(_winSize, _winSize), _maxLevel, termcrit, 0, 0.001);
 
-
     jsk_recognition_msgs::Flow3DArrayStamped flows_result_msg;
     flows_result_msg.header = image_msg->header;
     visualization_msgs::Marker marker;
@@ -452,12 +469,12 @@ namespace jsk_pcl_ros
       marker.color.b = 0.0;
       marker.scale.x = 0.02;
     }
-
     //prepare flow labelling
     std::vector<std::vector<jsk_recognition_msgs::Flow3D> > checked_flows;
     std::vector<int> flow_label_count(labeled_boxes.size(),0);
     uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
     size_t i, j, k, l, m;
+    size_t del_cnt = 0;
     uint flow_label; // not same as BoundingBox.label
     if(need_to_label_init){
       flow_labels.resize(features_found.size());
@@ -483,7 +500,7 @@ namespace jsk_pcl_ros
            || tmp_nextp.x < 2
            || tmp_nextp.y < 2 ){
           if(!need_to_label_init){
-            //remove label and flow_positions
+            //removea label and flow_positions
             for(l = 0; l < labeled_boxes.size(); l++){
               if(flow_labels.at(j) == labeled_boxes.at(l).label){
                 flow_label = l;
@@ -503,9 +520,9 @@ namespace jsk_pcl_ros
                   + (points[1][i].y - points[0][i].y) * (points[1][i].y - points[0][i].y))
              * sqrt((points[1][i].x - back_points[i].x) * (points[1][i].x - back_points[i].x)
                     + (points[1][i].y - back_points[i].y) * (points[1][i].y - back_points[i].y)));
-        if(theta < 0.8){
+        if(theta < 0.7){
           if(!need_to_label_init){
-            //remove label and flow_positions
+            //remove label and flow_position
             for(l = 0; l < labeled_boxes.size(); l++){
               if(flow_labels.at(j) == labeled_boxes.at(l).label){
                 flow_label = l;
@@ -517,7 +534,6 @@ namespace jsk_pcl_ros
           }
           continue;
         }
-
         pcl::PointXYZ prevp = trimmedmean(prevcloud, tmp_prevp);
         pcl::PointXYZ nextp = trimmedmean(cloud, tmp_nextp);
         if(isnan(nextp.x)
@@ -559,7 +575,7 @@ namespace jsk_pcl_ros
                 break;
               }
             }
-            flow_positions.at(flow_label).erase(flow_positions.at(flow_label).begin() + (flow_label_count.at(flow_label)));
+            flow_positions.at(flow_label).erase(flow_positions.at(flow_label).begin() + flow_label_count.at(flow_label));
             flow_labels.erase(flow_labels.begin() + j);
           }
           continue;
@@ -578,18 +594,18 @@ namespace jsk_pcl_ros
               }
             }
             if(k == 1){
-              //checked_flows.at(flow_label).push_back(flow_result);
+              checked_flows.at(flow_label).push_back(flow_result);
               checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = flow_result;
               flow_label_count.at(flow_label)++;
               flow_labels.at(j) = labeled_boxes.at(flow_label).label;
             } else {
-              flow_labels.at(j) = max_label + 1;
+              continue;
             }
         } else {
           //apply label
-          if(flow_labels.at(i) <= max_label){
+          if(flow_labels.at(j) <= max_label){
             for(l = 0; l < labeled_boxes.size(); l++){
-              if(flow_labels.at(i) == labeled_boxes.at(l).label){
+              if(flow_labels.at(j) == labeled_boxes.at(l).label){
                 flow_label = l;
                 break;
               }
@@ -599,16 +615,22 @@ namespace jsk_pcl_ros
                flow_result.point.z - flow_result.velocity.z);
                if(comparevertices(point,labeled_boxes.at(flow_label))){ */
             if(1){
-              //checked_flows.at(flow_label).push_back(flow_result);
+              checked_flows.at(flow_label).push_back(flow_result);
               checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = flow_result;
               flow_label_count.at(flow_label)++;
-              flow_labels.at(j) = flow_labels.at(i);
             } else {
               flow_labels.at(j) = max_label + 1;
+              //removea label and flow_positions
+              flow_positions.at(flow_label).erase(flow_positions.at(flow_label).begin() + flow_label_count.at(flow_label));
+              flow_labels.erase(flow_labels.begin() + j);
+              continue;
             }
+          } else {
+            //removea label and flow_positions
+            flow_labels.erase(flow_labels.begin() + j);
+            continue;
           }
         }
-
         points[1][j++] = points[1][i];
 
         cv::circle(flow, points[1][i], 5, cv::Scalar(255,0,0), 2, 8);
@@ -687,7 +709,6 @@ namespace jsk_pcl_ros
       }
       need_to_label_init = false;
     }
-
     //calc_rotate_variance
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).size() > 0){
@@ -762,10 +783,9 @@ namespace jsk_pcl_ros
         labeled_boxes.at(i).header = image_msg->header;
       }
     }
-
     k = 0;
     for(i = 0; i < checked_flows.size(); i++){
-      if(checked_flows.at(i).size() < 3){
+      if(checked_flows.at(i).size() < 4){
         for(j = 0; j < flow_labels.size(); j++){
           if(flow_labels.at(j) == labeled_boxes.at(i - k).label){
             flow_labels.at(j) = max_label + 2;
@@ -774,6 +794,7 @@ namespace jsk_pcl_ros
         labeled_boxes.erase(labeled_boxes.begin() + i - k);
         copy_labeled_boxes.erase(copy_labeled_boxes.begin() + i - k);
         boxes_translate.erase(boxes_translate.begin() + i - k);
+        flow_positions.erase(flow_positions.begin() + i - k);
         k++;
       }
     }

@@ -67,6 +67,7 @@
 #include <jsk_topic_tools/vital_checker.h>
 #include "jsk_topic_tools/diagnostic_nodelet.h"
 #include <Eigen/Geometry>
+#include <Eigen/SVD>
 
 namespace jsk_pcl_ros
 {
@@ -89,8 +90,10 @@ namespace jsk_pcl_ros
     virtual bool comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
                             uint* label);
     virtual std::vector<cv::Point3d> getVertices(const jsk_recognition_msgs::BoundingBox& box);
-    virtual bool comparevertices(const cv::Point3d& vertices,
-                                         const jsk_recognition_msgs::BoundingBox& compared_box);
+    virtual bool comparevertices(
+      const cv::Point3d& vertices,
+      const jsk_recognition_msgs::BoundingBox& compared_box);
+    virtual Eigen::MatrixXf pseudoinverse(const Eigen::MatrixXf& m);
     virtual void box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr &box);
     virtual void flow_extract(
       const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
