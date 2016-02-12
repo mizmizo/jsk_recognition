@@ -108,9 +108,8 @@ namespace jsk_pcl_ros
     sub_image_.unsubscribe();
   }
   
-  pcl::PointXYZ FlowTracking::trimmedmean(
-    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-    cv::Point2i point)
+  pcl::PointXYZ FlowTracking::trimmedmean(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+                                          cv::Point2i point)
   {
     std::vector<float> tmp_x,tmp_y,tmp_z;
     for(int i = -1; i < 2; i++)
@@ -287,9 +286,15 @@ namespace jsk_pcl_ros
           tmp_boxes.resize(box->boxes.size() + boxes_size);
           bool is_translated = false;
           for(i = 0; i < labeled_boxes.size(); i++){
+            Eigen::Quaternionf prev_q(copy_labeled_boxes.at(i).pose.orientation.w, copy_labeled_boxes.at(i).pose.orientation.x, copy_labeled_boxes.at(i).pose.orientation.y, copy_labeled_boxes.at(i).pose.orientation.z);
+            Eigen::Quaternionf next_q(labeled_boxes.at(i).pose.orientation.w, labeled_boxes.at(i).pose.orientation.x, labeled_boxes.at(i).pose.orientation.y, labeled_boxes.at(i).pose.orientation.z);
             if(fabs(labeled_boxes.at(i).pose.position.x - copy_labeled_boxes.at(i).pose.position.x) > 0.005 ||
                fabs(labeled_boxes.at(i).pose.position.y - copy_labeled_boxes.at(i).pose.position.y) > 0.005 ||
-               fabs(labeled_boxes.at(i).pose.position.z - copy_labeled_boxes.at(i).pose.position.z) > 0.005){
+               fabs(labeled_boxes.at(i).pose.position.z - copy_labeled_boxes.at(i).pose.position.z) > 0.005 ||
+               fabs(prev_q.w() - next_q.w()) > 0.01 ||
+               fabs(prev_q.w() - next_q.x()) > 0.01 ||
+               fabs(prev_q.w() - next_q.y()) > 0.01 ||
+               fabs(prev_q.w() - next_q.z()) > 0.01){
               is_translated = true;
               break;
             }
@@ -392,6 +397,7 @@ namespace jsk_pcl_ros
     cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 20, 0.03);
     cv_bridge::CvImagePtr cv_ptr;
     cv_bridge::CvImagePtr flow_ptr;
+    std::vector<cv::Point2f> new_points[2];
     cv_ptr = cv_bridge::toCvCopy(image_msg, "mono8");
     flow_ptr = cv_bridge::toCvCopy(image_msg, "rgb8");
     bool prevImg_update_required = false;
@@ -408,7 +414,7 @@ namespace jsk_pcl_ros
       cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
       pcl::fromROSMsg(*cloud_msg, *prevcloud);
       prevImg_update_required = false;
-      need_to_flow_init = false;
+      need_to_flow_init = true;
       JSK_ROS_INFO("return");
       return;
     }
@@ -420,7 +426,6 @@ namespace jsk_pcl_ros
     if(need_to_flow_init){
       goodFeaturesToTrack(prevImg, points[0], _maxCorners, _qualityLevel, _minDistance, cv::Mat());
       cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
-      need_to_flow_init = false;
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud
@@ -429,9 +434,10 @@ namespace jsk_pcl_ros
     cv::Mat nextImg(image_msg->height, image_msg->width, CV_8UC1);
     cv_ptr->image.copyTo(nextImg);
     flow_ptr->image.copyTo(flow);
-    goodFeaturesToTrack(nextImg, points[1], _maxCorners, _qualityLevel, _minDistance, cv::Mat(), _blockSize);
-    cv::cornerSubPix(nextImg, points[1], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
-    std::vector<cv::Point2f> tmp_points = points[1];
+    //for not tracking_mode
+    std::vector<cv::Point2f> tmp_points;
+    goodFeaturesToTrack(nextImg, tmp_points, _maxCorners, _qualityLevel, _minDistance, cv::Mat(), _blockSize);
+    cv::cornerSubPix(nextImg, tmp_points, cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
 
     std::vector<uchar> features_found;
     std::vector<float> feature_errors;
@@ -444,6 +450,22 @@ namespace jsk_pcl_ros
     std::vector<cv::Point2f> back_points;
     cv::calcOpticalFlowPyrLK(nextImg, prevImg, points[1], back_points, back_features_found, back_feature_errors,
                              cv::Size(_winSize, _winSize), _maxLevel, termcrit, 0, 0.001);
+
+
+    //calc new flow
+    std::vector<uchar> new_features_found;
+    std::vector<float> new_feature_errors;
+    std::vector<uchar> new_back_features_found;
+    std::vector<float> new_back_feature_errors;
+    std::vector<cv::Point2f> new_back_points;
+    if(!need_to_flow_init){
+      goodFeaturesToTrack(prevImg, new_points[0], _maxCorners, _qualityLevel, _minDistance, cv::Mat());
+      cv::cornerSubPix(prevImg, new_points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
+      cv::calcOpticalFlowPyrLK(prevImg, nextImg, new_points[0], new_points[1], new_features_found, new_feature_errors, cv::Size(_winSize, _winSize),
+                               _maxLevel, termcrit, 0, 0.001);
+      cv::calcOpticalFlowPyrLK(nextImg, prevImg, new_points[1], new_back_points, new_back_features_found, new_back_feature_errors,
+                               cv::Size(_winSize, _winSize), _maxLevel, termcrit, 0, 0.001);
+    }
 
     jsk_recognition_msgs::Flow3DArrayStamped flows_result_msg;
     flows_result_msg.header = image_msg->header;
@@ -702,12 +724,130 @@ namespace jsk_pcl_ros
           marker.points.push_back(flow_result.point);
         }
       }
+
     flow_labels.resize(j);
     for(i = 0; i < labeled_boxes.size(); i++){
       Eigen::MatrixXf tmp_flows(checked_flows.at(i));
       checked_flows.at(i).resize(4,flow_label_count.at(i));
       checked_flows.at(i) = tmp_flows.block(0, 0, 4, flow_label_count.at(i));
     }
+
+
+    std::cout << "old flow : " << j;
+    //labelling new flow
+    if(!need_to_flow_init){
+      int old_count(j);
+      flow_labels.resize(j + new_features_found.size());
+      points[1].resize(j + new_features_found.size());
+      for(i = 0; i < labeled_boxes.size(); i++){
+        Eigen::MatrixXf tmp_flows(checked_flows.at(i));
+        checked_flows.at(i).resize(4,flow_label_count.at(i) + new_features_found.size());
+        checked_flows.at(i).block(0, 0, 4, flow_label_count.at(i)) = tmp_flows.block(0, 0, 4, flow_label_count.at(i));
+        Eigen::MatrixXf tmp_positions(flow_positions.at(i));
+        flow_positions.at(i).resize(4, flow_label_count.at(i) + new_features_found.size());
+        flow_positions.at(i).block(0, 0, 4, flow_label_count.at(i)) = tmp_positions.block(0, 0, 4, flow_label_count.at(i));
+      }
+
+      for(i = 0; i < new_features_found.size(); i++){
+        cv::Point2i tmp_prevp = new_points[0][i];
+        cv::Point2i tmp_nextp = new_points[1][i];
+        if(!new_features_found[i]
+           || !new_back_features_found[i]
+           || tmp_prevp.x >= prevcloud->width - 1
+           || tmp_prevp.y >= prevcloud->height - 1
+           || tmp_nextp.x >= cloud->width - 1
+           || tmp_nextp.y >= cloud->height - 1
+           || tmp_prevp.x < 2
+           || tmp_prevp.y < 2
+           || tmp_nextp.x < 2
+           || tmp_nextp.y < 2 )
+          continue;
+        bool overlap = false;
+        for(l = 0; l < old_count; l++){
+          if(fabs(new_points[1][i].x - points[1][l].x) < 2.0 &&
+             fabs(new_points[1][i].y - points[1][l].y) < 2.0){
+            overlap = true;
+            break;
+          }
+        }
+        if(overlap)continue;
+
+        double theta = ((new_points[1][i].x - new_points[0][i].x) * (new_points[1][i].x - new_back_points[i].x)
+                        + (new_points[1][i].y - new_points[0][i].y) * (new_points[1][i].y - new_back_points[i].y))
+          / (sqrt((new_points[1][i].x - new_points[0][i].x) * (new_points[1][i].x - new_points[0][i].x)
+                  + (new_points[1][i].y - new_points[0][i].y) * (new_points[1][i].y - new_points[0][i].y))
+             * sqrt((new_points[1][i].x - new_back_points[i].x) * (new_points[1][i].x - new_back_points[i].x)
+                    + (new_points[1][i].y - new_back_points[i].y) * (new_points[1][i].y - new_back_points[i].y)));
+        if(theta < 0.7)
+          continue;
+        pcl::PointXYZ prevp = trimmedmean(prevcloud, tmp_prevp);
+        pcl::PointXYZ nextp = trimmedmean(cloud, tmp_nextp);
+        if(isnan(nextp.x)
+           || isnan(nextp.y)
+           || isnan(nextp.z)
+           || isnan(prevp.x)
+           || isnan(prevp.y)
+           || isnan(prevp.z))
+          continue;
+        jsk_recognition_msgs::Flow3D flow_result;
+        flow_result.point.x = nextp.x;
+        flow_result.point.y = nextp.y;
+        flow_result.point.z = nextp.z;
+        flow_result.velocity.x = nextp.x - prevp.x;
+        flow_result.velocity.y = nextp.y - prevp.y;
+        flow_result.velocity.z = nextp.z - prevp.z;
+        if(fabs(flow_result.velocity.x) > 0.5
+           ||fabs(flow_result.velocity.y) > 0.5
+           ||fabs(flow_result.velocity.z) > 0.5)
+          continue;
+
+
+        //labelling
+        cv::Point3d point(flow_result.point.x - flow_result.velocity.x,
+                          flow_result.point.y - flow_result.velocity.y,
+                          flow_result.point.z - flow_result.velocity.z);
+        k = 0;
+        for(l = 0; l < labeled_boxes.size(); l++){
+          if(comparevertices(point, labeled_boxes.at(l))){
+            k++;
+            flow_label = l;
+          }
+        }
+        if(k == 1 && checked_flows.at(flow_label).cols() > 3){
+          Eigen::Vector4f mat_point(flow_result.point.x, flow_result.point.y, flow_result.point.z, 1.0);
+          checked_flows.at(flow_label).col(flow_label_count.at(flow_label)) = mat_point;
+          Eigen::Quaternionf box_q(labeled_boxes.at(flow_label).pose.orientation.w,
+                                   labeled_boxes.at(flow_label).pose.orientation.x,
+                                   labeled_boxes.at(flow_label).pose.orientation.y,
+                                   labeled_boxes.at(flow_label).pose.orientation.z);
+          Eigen::Quaternionf flow_pos(0.0,
+                                      point.x - labeled_boxes.at(flow_label).pose.position.x,
+                                      point.y - labeled_boxes.at(flow_label).pose.position.y,
+                                      point.z - labeled_boxes.at(flow_label).pose.position.z);
+          Eigen::Quaternionf flow_pos_local = box_q.inverse() * flow_pos * box_q;
+          flow_positions.at(flow_label)(0, flow_label_count.at(flow_label)) = flow_pos_local.x();
+          flow_positions.at(flow_label)(1, flow_label_count.at(flow_label)) = flow_pos_local.y();
+          flow_positions.at(flow_label)(2, flow_label_count.at(flow_label)) = flow_pos_local.z();
+          flow_positions.at(flow_label)(3, flow_label_count.at(flow_label)) = 1.0;
+
+          flow_labels.at(j) = labeled_boxes.at(flow_label).label;
+          flow_label_count.at(flow_label)++;
+          points[1][j++] = new_points[1][i];
+        }
+      }
+      flow_labels.resize(j);
+      for(i = 0; i < labeled_boxes.size(); i++){
+        Eigen::MatrixXf tmp_flows(checked_flows.at(i));
+        checked_flows.at(i).resize(4,flow_label_count.at(i));
+        checked_flows.at(i) = tmp_flows.block(0, 0, 4, flow_label_count.at(i));
+        Eigen::MatrixXf tmp_positions(flow_positions.at(i));
+        flow_positions.at(i).resize(4, flow_label_count.at(i));
+        flow_positions.at(i) = tmp_positions.block(0, 0, 4, flow_label_count.at(i));
+      }
+    }
+    need_to_flow_init = false;
+
+    std::cout << " added flow : " << j << std::endl;;
     if(tracking_mode_){
       points[1].resize(j);
       std::swap(points[1],points[0]);
@@ -718,6 +858,7 @@ namespace jsk_pcl_ros
     pcl::copyPointCloud(*cloud, *prevcloud);
     flow.copyTo(flow_ptr->image);
     sensor_msgs::ImagePtr flow_image_msg = flow_ptr->toImageMsg();
+
     /* === box update === */
     if(need_to_label_init){
       flow_positions.resize(labeled_boxes.size());
@@ -746,8 +887,8 @@ namespace jsk_pcl_ros
     //calc translation and rotation
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).cols() > 3){
+        std::cout << "calc " << i << std::endl;
         Eigen::MatrixXf ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i));
-        std::cout << "calc " << i;
         std::cout << " ht_matrix : " << std::endl << ht_matrix << std::endl;
 
         //box_update
@@ -773,12 +914,12 @@ namespace jsk_pcl_ros
           labeled_boxes.at(i).pose.position.x = ht_matrix(0, 3);
           labeled_boxes.at(i).pose.position.y = ht_matrix(1, 3);
           labeled_boxes.at(i).pose.position.z = ht_matrix(2, 3);
-            Eigen::Matrix3f rot_mat(ht_matrix.block(0, 0, 3, 3));
-            Eigen::Quaternionf rot_q(rot_mat);
-            labeled_boxes.at(i).pose.orientation.w = rot_q.w();
-            labeled_boxes.at(i).pose.orientation.x = rot_q.x();
-            labeled_boxes.at(i).pose.orientation.y = rot_q.y();
-            labeled_boxes.at(i).pose.orientation.z = rot_q.z();
+          Eigen::Matrix3f rot_mat(ht_matrix.block(0, 0, 3, 3));
+          Eigen::Quaternionf rot_q(rot_mat);
+          labeled_boxes.at(i).pose.orientation.w = rot_q.w();
+          labeled_boxes.at(i).pose.orientation.x = rot_q.x();
+          labeled_boxes.at(i).pose.orientation.y = rot_q.y();
+          labeled_boxes.at(i).pose.orientation.z = rot_q.z();
           if(labeled_boxes.at(i).value != 1)
             labeled_boxes.at(i).value = 0;
         }
@@ -814,7 +955,6 @@ namespace jsk_pcl_ros
     for(i = 0; i < labeled_boxes.size(); i++){
       box_msg.boxes.push_back(labeled_boxes.at(i));
     }
-
     //publish messages
     image_pub_.publish(flow_image_msg);
     result_pub_.publish(flows_result_msg);
