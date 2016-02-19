@@ -46,6 +46,7 @@
 #include <pcl/filters/project_inliers.h>
 #include <sensor_msgs/image_encodings.h>
 #include <jsk_topic_tools/color_utils.h>
+//#include <random>
 
 #include "jsk_pcl_ros/geo_util.h"
 #include "jsk_pcl_ros/pcl_conversion_util.h"
@@ -888,8 +889,59 @@ namespace jsk_pcl_ros
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).cols() > 3){
         std::cout << "calc " << i << std::endl;
-        Eigen::MatrixXf ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i));
-        std::cout << " ht_matrix : " << std::endl << ht_matrix << std::endl;
+        //Eigen::MatrixXf ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i));
+        //std::cout << " ht_matrix : " << std::endl << ht_matrix << std::endl;
+
+        //todo use RANSAC
+
+        //RANSAC param
+        int Rloop = 10;
+        double Rthre = 0.005;
+        int Rcnt = checked_flows.at(i).cols() * 0.3;
+
+        std::vector<Eigen::MatrixXf> good_matrixes;
+        std::vector<double> good_errors;
+
+        //std::random_device rnd;
+        //std::mt19937 mt(rnd());
+        //std::uniform_int_distribution<> rnd_itr(0, checked_flows.at(i).cols() - 1);
+        srand((unsigned int)time(NULL));
+
+        for(j = 0; j < Rloop; j++){
+          Eigen::MatrixXf picked_flow;
+          Eigen::MatrixXf picked_position;
+          picked_flow.resize(4, 4);
+          picked_position.resize(4, 4);
+          for(l = 0; l < 4; l++){
+            //int itr = rnd_itr(mt);
+            int itr = rand() % checked_flows.at(i).cols();
+            picked_flow.col(l) = checked_flows.at(i).col(itr);
+            picked_position.col(l) = flow_positions.at(i).col(itr);
+          }
+          int inlier = 0;
+          double error_sum = 0;
+          Eigen::MatrixXf tmp_matrix = picked_flow * pseudoinverse(picked_position);
+          if(fabs(tmp_matrix.block(0, 0, 3, 3).determinant() - 1.0) > 0.2)continue;
+          for(l = 0; l < checked_flows.at(i).cols(); l++){
+            Eigen::Vector4f error_v = checked_flows.at(i).col(l) - tmp_matrix * flow_positions.at(i).col(l);
+            double error = error_v.norm();
+            if(error < Rthre)inlier++;
+            error_sum += error;
+          }
+          if(inlier >= Rcnt){
+            good_matrixes.push_back(tmp_matrix);
+            good_errors.push_back(error_sum);
+          }
+        }
+
+        Eigen::MatrixXf ht_matrix;
+        if(good_matrixes.size() > 0){
+          std::vector<double>::iterator min_itr = std::min_element(good_errors.begin(), good_errors.end());
+          size_t min_index = std::distance(good_errors.begin(), min_itr);
+          ht_matrix = good_matrixes.at(min_index);
+        } else {
+          ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i));
+        }
 
         //box_update
         double flow_variance = 0.0; //todo
