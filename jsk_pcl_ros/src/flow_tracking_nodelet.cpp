@@ -411,22 +411,45 @@ namespace jsk_pcl_ros
     }
     if(prevImg_update_required) {
       cv_ptr->image.copyTo(prevImg);
-      goodFeaturesToTrack(prevImg, points[0], _maxCorners, _qualityLevel, _minDistance, cv::Mat());
-      cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
       pcl::fromROSMsg(*cloud_msg, *prevcloud);
       prevImg_update_required = false;
       need_to_flow_init = true;
       JSK_ROS_INFO("return");
       return;
     }
-    if(points[0].size() < 4){
-      need_to_flow_init = true;
-      std::cout << "flow init (few flows)" << std::endl;
-      need_to_label_init = true;
+    if(!need_to_flow_init){
+      if(points[0].size() < 4){
+        need_to_flow_init = true;
+        std::cout << "flow init (few flows)" << std::endl;
+        need_to_label_init = true;
+      }
     }
     if(need_to_flow_init){
       goodFeaturesToTrack(prevImg, points[0], _maxCorners, _qualityLevel, _minDistance, cv::Mat());
       cv::cornerSubPix(prevImg, points[0], cv::Size(_subPixWinSize, _subPixWinSize), cv::Size(-1,-1), termcrit);
+      size_t i,j,k;
+      k = 0;
+      for(i = 0; i < points[0].size(); i++){
+        bool overlap = false;
+
+        std::cout << "size : " << points[0].size() << std::endl;
+        for(j = 0; j < k; j++){
+          std::cout << "i : " << i << " j : " << j << " k : " << k << std::endl;
+          //todo add exception
+          try{
+            if(fabs(points[0][i].x - points[0][j].x) < 2.0 &&
+               fabs(points[0][i].y - points[0][j].y) < 2.0){
+              overlap = true;
+            }
+          }
+          catch() {
+          }
+        }
+        if(!overlap){
+          points[k++] = points[i];
+        }
+      }
+      points[0].resize(k);
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud
@@ -848,7 +871,7 @@ namespace jsk_pcl_ros
     }
     need_to_flow_init = false;
 
-    std::cout << " added flow : " << j << std::endl;;
+    std::cout << " added flow : " << j << std::endl;
     if(tracking_mode_){
       points[1].resize(j);
       std::swap(points[1],points[0]);
