@@ -431,22 +431,21 @@ namespace jsk_pcl_ros
       k = 0;
       for(i = 0; i < points[0].size(); i++){
         bool overlap = false;
+        //        try{
+          cv::Point2f point = points[0].at(i);
+          //}
+          //catch(){
+          //  break;
+          //}
 
-        std::cout << "size : " << points[0].size() << std::endl;
         for(j = 0; j < k; j++){
-          std::cout << "i : " << i << " j : " << j << " k : " << k << std::endl;
-          //todo add exception
-          try{
-            if(fabs(points[0][i].x - points[0][j].x) < 2.0 &&
-               fabs(points[0][i].y - points[0][j].y) < 2.0){
-              overlap = true;
-            }
-          }
-          catch() {
+          if(fabs(point.x - points[0][j].x) < 2.0 &&
+             fabs(point.y - points[0][j].y) < 2.0){
+            overlap = true;
           }
         }
         if(!overlap){
-          points[k++] = points[i];
+          points[0][k++] = points[0][i];
         }
       }
       points[0].resize(k);
@@ -564,7 +563,6 @@ namespace jsk_pcl_ros
                 = tmp_mat.block(0, flow_label_count.at(flow_label) + 1, 4, tmp_mat.cols() - flow_label_count.at(flow_label) - 1);
             }
             flow_labels.erase(flow_labels.begin() + j);
-            std::cout << "finish"<< std::endl;
           }
           continue;
         }
@@ -595,7 +593,6 @@ namespace jsk_pcl_ros
                 = tmp_mat.block(0, flow_label_count.at(flow_label) + 1, 4, tmp_mat.cols() - flow_label_count.at(flow_label) - 1);
             }
             flow_labels.erase(flow_labels.begin() + j);
-            std::cout << "finish"<< std::endl;
           }
           continue;
         }
@@ -626,7 +623,6 @@ namespace jsk_pcl_ros
                 = tmp_mat.block(0, flow_label_count.at(flow_label) + 1, 4, tmp_mat.cols() - flow_label_count.at(flow_label) - 1);
             }
             flow_labels.erase(flow_labels.begin() + j);
-            std::cout << "finish"<< std::endl;
           }
           continue;
         }
@@ -660,7 +656,6 @@ namespace jsk_pcl_ros
                 = tmp_mat.block(0, flow_label_count.at(flow_label) + 1, 4, tmp_mat.cols() - flow_label_count.at(flow_label) - 1);
             }
             flow_labels.erase(flow_labels.begin() + j);
-            std::cout << "finish"<< std::endl;
           }
           continue;
         }
@@ -714,7 +709,6 @@ namespace jsk_pcl_ros
               flow_positions.at(flow_label).block(0, flow_label_count.at(flow_label), 4, flow_positions.at(flow_label).cols() - flow_label_count.at(flow_label))
                 = tmp_mat.block(0, flow_label_count.at(flow_label) + 1, 4, tmp_mat.cols() - flow_label_count.at(flow_label) - 1);
               flow_labels.erase(flow_labels.begin() + j);
-              std::cout << "finish"<< std::endl;
               continue;
             }
           } else {
@@ -911,16 +905,15 @@ namespace jsk_pcl_ros
     //calc translation and rotation
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).cols() > 3){
-        std::cout << "calc " << i << std::endl;
-        //Eigen::MatrixXf ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i));
+        //Eigen::MatrixXf ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i))
         //std::cout << " ht_matrix : " << std::endl << ht_matrix << std::endl;
 
         //todo use RANSAC
 
         //RANSAC param
-        int Rloop = 10;
-        double Rthre = 0.005;
-        int Rcnt = checked_flows.at(i).cols() * 0.3;
+        int Rloop = 100;
+        double Rthre = 0.007;
+        int Rcnt = checked_flows.at(i).cols() * 0.6;
 
         std::vector<Eigen::MatrixXf> good_matrixes;
         std::vector<double> good_errors;
@@ -949,23 +942,31 @@ namespace jsk_pcl_ros
             Eigen::Vector4f error_v = checked_flows.at(i).col(l) - tmp_matrix * flow_positions.at(i).col(l);
             double error = error_v.norm();
             if(error < Rthre)inlier++;
-            error_sum += error;
+            if(inlier > Rcnt)break;
           }
-          if(inlier >= Rcnt){
+          if(inlier > Rcnt){
             good_matrixes.push_back(tmp_matrix);
+            for(l = 0; l < checked_flows.at(i).cols(); l++){
+              Eigen::Vector4f error_v = checked_flows.at(i).col(l) - tmp_matrix * flow_positions.at(i).col(l);
+              double error = error_v.norm();
+              if(error < Rthre)error_sum += error;
+            }
             good_errors.push_back(error_sum);
           }
         }
 
         Eigen::MatrixXf ht_matrix;
         if(good_matrixes.size() > 0){
+          std::cout << "RANSAC successed ";
           std::vector<double>::iterator min_itr = std::min_element(good_errors.begin(), good_errors.end());
           size_t min_index = std::distance(good_errors.begin(), min_itr);
           ht_matrix = good_matrixes.at(min_index);
         } else {
+          std::cout << "RANSAC failed ";
           ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i));
         }
 
+        std::cout << " : " << std::endl << ht_matrix << std::endl;
         //box_update
         double flow_variance = 0.0; //todo
         if(check_deformation_){
