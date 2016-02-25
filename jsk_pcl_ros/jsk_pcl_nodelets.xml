@@ -216,6 +216,10 @@
          type="jsk_pcl_ros::FlowTracking"
          base_class_type="nodelet::Nodelet">
   </class>
+  <class name="jsk_pcl/FlowSpeedTracking"
+         type="jsk_pcl_ros::FlowSpeedTracking"
+         base_class_type="nodelet::Nodelet">
+  </class>
   <class name="jsk_pcl/SupervoxelSegmentation"
          type="jsk_pcl_ros::SupervoxelSegmentation"
          base_class_type="nodelet::Nodelet">

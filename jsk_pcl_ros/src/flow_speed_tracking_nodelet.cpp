@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#include "jsk_pcl_ros/flow_tracking.h"
+#include "jsk_pcl_ros/flow_speed_tracking.h"
 #include <pluginlib/class_list_macros.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/common/centroid.h>
@@ -54,7 +54,7 @@
 
 namespace jsk_pcl_ros
 {
-  void FlowTracking::onInit()
+  void FlowSpeedTracking::onInit()
   {
     DiagnosticNodelet::onInit();
     pnh_->param("maxCorners", _maxCorners, 100);
@@ -76,40 +76,40 @@ namespace jsk_pcl_ros
     if(publish_marker_)
       vis_pub_ = advertise<visualization_msgs::Marker>(*pnh_, "output/visualized_flow", 1);
     if(tracking_mode_){
-      init_srv_ = pnh_->advertiseService("initialize", &FlowTracking::initServiceCallback, this);
+      init_srv_ = pnh_->advertiseService("initialize", &FlowSpeedTracking::initServiceCallback, this);
     }
     need_to_label_init = true;
     onInitPostProcess();
 
   }
   
-  void FlowTracking::subscribe()
+  void FlowSpeedTracking::subscribe()
   {
-    sub_box_ = pnh_->subscribe("box", 1, &FlowTracking::box_extract, this);
+    sub_box_ = pnh_->subscribe("box", 1, &FlowSpeedTracking::box_extract, this);
     sub_cloud_.subscribe(*pnh_, "input", 1);
     sub_image_.subscribe(*pnh_, "input/image", 1);
     if (approximate_sync_) {
       async_ = boost::make_shared<message_filters::Synchronizer<ApproximateSyncPolicy> >(100);
       async_->connectInput(sub_cloud_, sub_image_);
-      async_->registerCallback(boost::bind(&FlowTracking::flow_extract,
+      async_->registerCallback(boost::bind(&FlowSpeedTracking::flow_extract,
                                            this, _1, _2));
     }
     else {
       sync_ = boost::make_shared<message_filters::Synchronizer<SyncPolicy> >(100);
       sync_->connectInput(sub_cloud_, sub_image_);
-      sync_->registerCallback(boost::bind(&FlowTracking::flow_extract,
+      sync_->registerCallback(boost::bind(&FlowSpeedTracking::flow_extract,
                                           this, _1, _2));
     }
   }
   
-  void FlowTracking::unsubscribe()
+  void FlowSpeedTracking::unsubscribe()
   {
     sub_box_.shutdown();
     sub_cloud_.unsubscribe();
     sub_image_.unsubscribe();
   }
   
-  pcl::PointXYZ FlowTracking::trimmedmean(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+  pcl::PointXYZ FlowSpeedTracking::trimmedmean(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                           cv::Point2i point)
   {
     std::vector<float> tmp_x,tmp_y,tmp_z;
@@ -139,7 +139,7 @@ namespace jsk_pcl_ros
     return(mean);
   }
 
-  bool FlowTracking::comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
+  bool FlowSpeedTracking::comparebox(const jsk_recognition_msgs::BoundingBox& input_box,
                                       uint* label)
   {
     size_t i,j;
@@ -169,10 +169,10 @@ namespace jsk_pcl_ros
       return true;
     } else {
       return false;
-        }    
+        }
   }
 
-  std::vector<cv::Point3d> FlowTracking::getVertices(const jsk_recognition_msgs::BoundingBox& box)
+  std::vector<cv::Point3d> FlowSpeedTracking::getVertices(const jsk_recognition_msgs::BoundingBox& box)
   {
     Eigen::Affine3f pose;
     tf::poseMsgToEigen(box.pose, pose);
@@ -212,7 +212,7 @@ namespace jsk_pcl_ros
     return ret;
   }
 
-  bool FlowTracking::comparevertices(const cv::Point3d& vertice,
+  bool FlowSpeedTracking::comparevertices(const cv::Point3d& vertice,
                                          const jsk_recognition_msgs::BoundingBox& compared_box)
   {
     std::vector<cv::Point3d> compared_vertices = getVertices(compared_box);
@@ -242,7 +242,7 @@ namespace jsk_pcl_ros
     }
   }
 
-  Eigen::MatrixXf FlowTracking::pseudoinverse(const Eigen::MatrixXf& m)
+  Eigen::MatrixXf FlowSpeedTracking::pseudoinverse(const Eigen::MatrixXf& m)
   {
     Eigen::JacobiSVD<Eigen::MatrixXf> svd(m, Eigen::ComputeThinU | Eigen::ComputeThinV);
     Eigen::VectorXf sigma(svd.singularValues());
@@ -260,7 +260,7 @@ namespace jsk_pcl_ros
     return svd.matrixV() * sigma_inv.asDiagonal() * svd.matrixU().transpose();
   }
 
-  bool FlowTracking::initServiceCallback(
+  bool FlowSpeedTracking::initServiceCallback(
     std_srvs::Empty::Request& req,
     std_srvs::Empty::Response& res)
   {
@@ -269,8 +269,8 @@ namespace jsk_pcl_ros
     need_to_label_init = true;
     return true;
   }
-  
-  void FlowTracking::box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr& box)
+
+  void FlowSpeedTracking::box_extract(const jsk_recognition_msgs::BoundingBoxArrayConstPtr& box)
   {
     vital_checker_->poke();
     boost::mutex::scoped_lock lock(mutex_);
@@ -309,10 +309,10 @@ namespace jsk_pcl_ros
               jsk_recognition_msgs::BoundingBox input_box;
               input_box = box->boxes[i];
               uint label = max_label + 1;
-              
+
               if(comparebox(input_box, &label)){ //fit-box label
                 input_box.label = label;
-                
+
                 if (l == 0){
                   tmp_boxes.at(l) = input_box;
                   l++;
@@ -380,7 +380,7 @@ namespace jsk_pcl_ros
 
   }
 
-  void FlowTracking::flow_extract(
+  void FlowSpeedTracking::flow_extract(
     const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
     const sensor_msgs::Image::ConstPtr& image_msg)
   {
@@ -1030,4 +1030,4 @@ namespace jsk_pcl_ros
   }
 }
 
-PLUGINLIB_EXPORT_CLASS (jsk_pcl_ros::FlowTracking,nodelet::Nodelet);
+PLUGINLIB_EXPORT_CLASS (jsk_pcl_ros::FlowSpeedTracking,nodelet::Nodelet);
