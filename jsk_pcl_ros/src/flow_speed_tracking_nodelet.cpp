@@ -509,6 +509,7 @@ namespace jsk_pcl_ros
     }
     //prepare flow labelling
     std::vector<Eigen::MatrixXf> checked_flows;
+    std::vector<Eigen::MatrixXf> checked_pre_flows; //todo
     std::vector<int> flow_label_count(labeled_boxes.size(),0);
     uint max_label = labeled_boxes.at(labeled_boxes.size() - 1).label;
     size_t i, j, k, l, m;
