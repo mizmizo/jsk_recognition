@@ -778,7 +778,7 @@ namespace jsk_pcl_ros
 
     //calc translation and rotation
     for(i = 0; i < checked_flows.size(); i++){
-      if(checked_flows.at(i).cols() > 3){
+      if(checked_flows.at(i).size() > 3){
         //RANSAC param
         int Rloop = 100;
         double Rthre = 0.007;
@@ -795,9 +795,10 @@ namespace jsk_pcl_ros
         for(j = 0; j < Rloop; j++){
           Eigen::MatrixXf picked_flow;
           Eigen::MatrixXf picked_pre_pos;
-          Eigen::MatrixXf::Zero(4, 1) pre_g;
+          Eigen::MatrixXf pre_g;
           picked_flow.resize(4, 4);
           picked_pre_pos.resize(4, 4);
+          pre_g = Eigen::MatrixXf::Zero(4,1);
           for(l = 0; l < 4; l++){
             //int itr = rnd_itr(mt);
             int itr = rand() % checked_flows.at(i).size();
@@ -805,9 +806,9 @@ namespace jsk_pcl_ros
             picked_flow(1, l) = checked_flows.at(i).at(itr).velocity.y;
             picked_flow(2, l) = checked_flows.at(i).at(itr).velocity.z;
             picked_flow(3, l) = 1.0;
-            picked_pre_pos(0, l) = checked_flows.at(i).at(itr).position.x - checked_flows.at(i).at(itr).velocity.x;
-            picked_pre_pos(1, l) = checked_flows.at(i).at(itr).position.y - checked_flows.at(i).at(itr).velocity.y;
-            picked_pre_pos(2, l) = checked_flows.at(i).at(itr).position.z - checked_flows.at(i).at(itr).velocity.z;
+            picked_pre_pos(0, l) = checked_flows.at(i).at(itr).point.x - checked_flows.at(i).at(itr).velocity.x;
+            picked_pre_pos(1, l) = checked_flows.at(i).at(itr).point.y - checked_flows.at(i).at(itr).velocity.y;
+            picked_pre_pos(2, l) = checked_flows.at(i).at(itr).point.z - checked_flows.at(i).at(itr).velocity.z;
             picked_pre_pos(3, l) = 1.0;
             pre_g(0, 0) += picked_pre_pos(0, l) / 4;
             pre_g(1, 0) += picked_pre_pos(1, l) / 4;
@@ -815,21 +816,18 @@ namespace jsk_pcl_ros
           }
 
           for(l = 0; l < 4; l++){
-            picked_pre_pos(0, l) -= pre_g(0, 0);
-            picked_pre_pos(1, l) -= pre_g(1, 0);
-            picked_pre_pos(2, l) -= pre_g(2, 0);
+            picked_pre_pos.col(l) -= pre_g;
           }
 
           int inlier = 0;
           double error_sum = 0;
           Eigen::MatrixXf tmp_matrix = picked_flow * pseudoinverse(picked_pre_pos);
-          tmp_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
-          if(fabs(tmp_matrix.block(0, 0, 3, 3).determinant() - 1.0) > 0.2)continue;
+          if(fabs((tmp_matrix.block(0, 0, 3, 3) + Eigen::Matrix3f::Identity()).determinant() - 1.0) > 0.2)continue;
           for(l = 0; l < checked_flows.at(i).size(); l++){
-            Eigen::Vector4f pre_pos(checked_flows.at(i).at(l).position.x - checked_flows.at(i).at(l).velocity.x - pre_g(0, 0),
-                                    checked_flows.at(i).at(l).position.y - checked_flows.at(i).at(l).velocity.y - pre_g(0, 0),
-                                    checked_flows.at(i).at(l).position.z - checked_flows.at(i).at(l).velocity.z - pre_g(0, 0),
-                                    1.0)
+            Eigen::Vector4f pre_pos(checked_flows.at(i).at(l).point.x - checked_flows.at(i).at(l).velocity.x - pre_g(0, 0),
+                                    checked_flows.at(i).at(l).point.y - checked_flows.at(i).at(l).velocity.y - pre_g(0, 0),
+                                    checked_flows.at(i).at(l).point.z - checked_flows.at(i).at(l).velocity.z - pre_g(0, 0),
+                                    1.0);
             Eigen::Vector4f calced_vel = tmp_matrix * pre_pos;
             Eigen::Vector3f error_v(checked_flows.at(i).at(l).velocity.x - pre_pos(0),
                                     checked_flows.at(i).at(l).velocity.y - pre_pos(1),
@@ -852,13 +850,15 @@ namespace jsk_pcl_ros
           std::vector<double>::iterator min_itr = std::min_element(good_errors.begin(), good_errors.end());
           size_t min_index = std::distance(good_errors.begin(), min_itr);
           ht_matrix = good_matrixes.at(min_index);
+          ht_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
         } else {
           std::cout << "RANSAC failed ";
           Eigen::MatrixXf flow_mat;
           Eigen::MatrixXf pre_pos;
-          Eigen::MatrixXf::Zero(4, 1) pre_g;
+          Eigen::MatrixXf pre_g;
           flow_mat.resize(4, checked_flows.at(i).size());
           pre_pos.resize(4, checked_flows.at(i).size());
+          pre_g = Eigen::MatrixXf::Zero(4,1);
           for(l = 0; l < checked_flows.at(i).size(); l++){
             //int itr = rnd_itr(mt);
             int itr = rand() % checked_flows.at(i).size();
@@ -866,9 +866,9 @@ namespace jsk_pcl_ros
             flow_mat(1, l) = checked_flows.at(i).at(itr).velocity.y;
             flow_mat(2, l) = checked_flows.at(i).at(itr).velocity.z;
             flow_mat(3, l) = 1.0;
-            pre_pos(0, l) = checked_flows.at(i).at(itr).position.x - checked_flows.at(i).at(itr).velocity.x;
-            pre_pos(1, l) = checked_flows.at(i).at(itr).position.y - checked_flows.at(i).at(itr).velocity.y;
-            pre_pos(2, l) = checked_flows.at(i).at(itr).position.z - checked_flows.at(i).at(itr).velocity.z;
+            pre_pos(0, l) = checked_flows.at(i).at(itr).point.x - checked_flows.at(i).at(itr).velocity.x;
+            pre_pos(1, l) = checked_flows.at(i).at(itr).point.y - checked_flows.at(i).at(itr).velocity.y;
+            pre_pos(2, l) = checked_flows.at(i).at(itr).point.z - checked_flows.at(i).at(itr).velocity.z;
             pre_pos(3, l) = 1.0;
             pre_g(0, 0) += pre_pos(0, l) / 4;
             pre_g(1, 0) += pre_pos(1, l) / 4;
@@ -934,7 +934,7 @@ namespace jsk_pcl_ros
     }
     k = 0;
     for(i = 0; i < checked_flows.size(); i++){
-      if(checked_flows.at(i).cols() < 4){
+      if(checked_flows.at(i).size() < 4){
         for(j = 0; j < flow_labels.size(); j++){
           if(flow_labels.at(j) == labeled_boxes.at(i - k).label){
             flow_labels.at(j) = max_label + 2;
