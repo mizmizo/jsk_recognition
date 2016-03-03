@@ -538,7 +538,7 @@ namespace jsk_pcl_ros
            || tmp_nextp.x < 2
            || tmp_nextp.y < 2 ){
           if(!need_to_label_init){
-            //remove label and flow_positions
+            //remove label
             std::cout << "remove1 ";
             flow_labels.erase(flow_labels.begin() + j);
           }
@@ -553,7 +553,7 @@ namespace jsk_pcl_ros
                     + (points[1][i].y - back_points[i].y) * (points[1][i].y - back_points[i].y)));
         if(theta < 0.7){
           if(!need_to_label_init){
-            //remove label and flow_position
+            //remove label
             std::cout << "remove2 ";
             flow_labels.erase(flow_labels.begin() + j);
           }
@@ -568,7 +568,7 @@ namespace jsk_pcl_ros
            || isnan(prevp.y)
            || isnan(prevp.z)){
           if(!need_to_label_init){
-            //remove label and flow_positions
+            //remove label
             std::cout << "remove3 ";
             flow_labels.erase(flow_labels.begin() + j);
           }
@@ -586,7 +586,7 @@ namespace jsk_pcl_ros
            ||fabs(flow_result.velocity.y) > 0.5
            ||fabs(flow_result.velocity.z) > 0.5){
           if(!need_to_label_init){
-            //remove label and flow_positions
+            //remove label
             std::cout << "remove4 ";
             flow_labels.erase(flow_labels.begin() + j);
           }
@@ -630,13 +630,13 @@ namespace jsk_pcl_ros
               checked_flows.at(flow_label).at(flow_label_count.at(flow_label)) = flow_result;
               flow_label_count.at(flow_label)++;
             } else {
-              //remove label and flow_positions
+              //remove label
               std::cout << "remove5 ";
               flow_labels.erase(flow_labels.begin() + j);
               continue;
             }
           } else {
-            //remove label and flow_positions
+            //remove label
             flow_labels.erase(flow_labels.begin() + j);
             continue;
           }
@@ -779,9 +779,6 @@ namespace jsk_pcl_ros
     //calc translation and rotation
     for(i = 0; i < checked_flows.size(); i++){
       if(checked_flows.at(i).cols() > 3){
-        //Eigen::MatrixXf ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i))
-        //std::cout << " ht_matrix : " << std::endl << ht_matrix << std::endl;
-
         //RANSAC param
         int Rloop = 100;
         double Rthre = 0.007;
@@ -826,6 +823,7 @@ namespace jsk_pcl_ros
           int inlier = 0;
           double error_sum = 0;
           Eigen::MatrixXf tmp_matrix = picked_flow * pseudoinverse(picked_pre_pos);
+          tmp_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
           if(fabs(tmp_matrix.block(0, 0, 3, 3).determinant() - 1.0) > 0.2)continue;
           for(l = 0; l < checked_flows.at(i).size(); l++){
             Eigen::Vector4f pre_pos(checked_flows.at(i).at(l).position.x - checked_flows.at(i).at(l).velocity.x - pre_g(0, 0),
@@ -856,8 +854,34 @@ namespace jsk_pcl_ros
           ht_matrix = good_matrixes.at(min_index);
         } else {
           std::cout << "RANSAC failed ";
-          //TODO
-          //ht_matrix = checked_flows.at(i) * pseudoinverse(flow_positions.at(i));
+          Eigen::MatrixXf flow_mat;
+          Eigen::MatrixXf pre_pos;
+          Eigen::MatrixXf::Zero(4, 1) pre_g;
+          flow_mat.resize(4, checked_flows.at(i).size());
+          pre_pos.resize(4, checked_flows.at(i).size());
+          for(l = 0; l < checked_flows.at(i).size(); l++){
+            //int itr = rnd_itr(mt);
+            int itr = rand() % checked_flows.at(i).size();
+            flow_mat(0, l) = checked_flows.at(i).at(itr).velocity.x;
+            flow_mat(1, l) = checked_flows.at(i).at(itr).velocity.y;
+            flow_mat(2, l) = checked_flows.at(i).at(itr).velocity.z;
+            flow_mat(3, l) = 1.0;
+            pre_pos(0, l) = checked_flows.at(i).at(itr).position.x - checked_flows.at(i).at(itr).velocity.x;
+            pre_pos(1, l) = checked_flows.at(i).at(itr).position.y - checked_flows.at(i).at(itr).velocity.y;
+            pre_pos(2, l) = checked_flows.at(i).at(itr).position.z - checked_flows.at(i).at(itr).velocity.z;
+            pre_pos(3, l) = 1.0;
+            pre_g(0, 0) += pre_pos(0, l) / 4;
+            pre_g(1, 0) += pre_pos(1, l) / 4;
+            pre_g(2, 0) += pre_pos(2, l) / 4;
+          }
+
+          for(l = 0; l < checked_flows.at(i).size(); l++){
+            pre_pos(0, l) -= pre_g(0, 0);
+            pre_pos(1, l) -= pre_g(1, 0);
+            pre_pos(2, l) -= pre_g(2, 0);
+          }
+          ht_matrix = flow_mat * pseudoinverse(pre_pos);
+          ht_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
         }
 
         std::cout << " : " << std::endl << ht_matrix << std::endl;
@@ -892,10 +916,15 @@ namespace jsk_pcl_ros
           labeled_boxes.at(i).pose.position.z += ht_matrix(2, 3);
           Eigen::Matrix3f rot_mat(ht_matrix.block(0, 0, 3, 3));
           Eigen::Quaternionf rot_q(rot_mat);
-          labeled_boxes.at(i).pose.orientation.w = rot_q.w();
-          labeled_boxes.at(i).pose.orientation.x = rot_q.x();
-          labeled_boxes.at(i).pose.orientation.y = rot_q.y();
-          labeled_boxes.at(i).pose.orientation.z = rot_q.z();
+          Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
+                                    labeled_boxes.at(i).pose.orientation.x,
+                                    labeled_boxes.at(i).pose.orientation.y,
+                                    labeled_boxes.at(i).pose.orientation.z);
+          Eigen::Quaternionf next_q = rot_q * prev_q;
+          labeled_boxes.at(i).pose.orientation.w = next_q.w();
+          labeled_boxes.at(i).pose.orientation.x = next_q.x();
+          labeled_boxes.at(i).pose.orientation.y = next_q.y();
+          labeled_boxes.at(i).pose.orientation.z = next_q.z();
           if(labeled_boxes.at(i).value != 1)
             labeled_boxes.at(i).value = 0;
         }
