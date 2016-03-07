@@ -785,6 +785,7 @@ namespace jsk_pcl_ros
         int Rcnt = checked_flows.at(i).size() * 0.6;
 
         std::vector<Eigen::MatrixXf> good_matrixes;
+        std::vector<Eigen::MatrixXf> good_gs;
         std::vector<double> good_errors;
 
         //std::random_device rnd;
@@ -840,25 +841,26 @@ namespace jsk_pcl_ros
           }
           if(inlier > Rcnt){
             good_matrixes.push_back(tmp_matrix);
+            good_gs.push_back(pre_pos);
             good_errors.push_back(error_sum);
           }
         }
 
         Eigen::MatrixXf ht_matrix;
+        EIgen::MatrixXf g_pos;
         if(good_matrixes.size() > 0){
           std::cout << "RANSAC successed ";
           std::vector<double>::iterator min_itr = std::min_element(good_errors.begin(), good_errors.end());
           size_t min_index = std::distance(good_errors.begin(), min_itr);
           ht_matrix = good_matrixes.at(min_index);
-          ht_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
+          g_pos = good_gs.at(min_index);
         } else {
           std::cout << "RANSAC failed ";
           Eigen::MatrixXf flow_mat;
           Eigen::MatrixXf pre_pos;
-          Eigen::MatrixXf pre_g;
           flow_mat.resize(4, checked_flows.at(i).size());
           pre_pos.resize(4, checked_flows.at(i).size());
-          pre_g = Eigen::MatrixXf::Zero(4,1);
+          g_pos = Eigen::MatrixXf::Zero(4,1);
           for(l = 0; l < checked_flows.at(i).size(); l++){
             //int itr = rnd_itr(mt);
             int itr = rand() % checked_flows.at(i).size();
@@ -870,18 +872,17 @@ namespace jsk_pcl_ros
             pre_pos(1, l) = checked_flows.at(i).at(itr).point.y - checked_flows.at(i).at(itr).velocity.y;
             pre_pos(2, l) = checked_flows.at(i).at(itr).point.z - checked_flows.at(i).at(itr).velocity.z;
             pre_pos(3, l) = 1.0;
-            pre_g(0, 0) += pre_pos(0, l) / 4;
-            pre_g(1, 0) += pre_pos(1, l) / 4;
-            pre_g(2, 0) += pre_pos(2, l) / 4;
+            g_pos(0, 0) += pre_pos(0, l) / 4;
+            g_pos(1, 0) += pre_pos(1, l) / 4;
+            g_pos(2, 0) += pre_pos(2, l) / 4;
           }
 
           for(l = 0; l < checked_flows.at(i).size(); l++){
-            pre_pos(0, l) -= pre_g(0, 0);
-            pre_pos(1, l) -= pre_g(1, 0);
-            pre_pos(2, l) -= pre_g(2, 0);
+            pre_pos(0, l) -= g_pos(0, 0);
+            pre_pos(1, l) -= g_pos(1, 0);
+            pre_pos(2, l) -= g_pos(2, 0);
           }
           ht_matrix = flow_mat * pseudoinverse(pre_pos);
-          ht_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
         }
 
         std::cout << " : " << std::endl << ht_matrix << std::endl;
@@ -890,9 +891,19 @@ namespace jsk_pcl_ros
         if(check_deformation_){
           float thre = 0.00007;
           if(flow_variance < thre){
-            labeled_boxes.at(i).pose.position.x += ht_matrix(0, 3);
-            labeled_boxes.at(i).pose.position.y += ht_matrix(1, 3);
-            labeled_boxes.at(i).pose.position.z += ht_matrix(2, 3);
+            Eigen::MatrixXf box_ref_g;
+            box_ref_g.resize(4, 1);
+            box_ref_g(0, 0) = labeled_boxes.at().pose.position.x - g_pos(0, 0);
+            box_ref_g(1, 0) = labeled_boxes.at().pose.position.y - g_pos(1, 0);
+            box_ref_g(2, 0) = labeled_boxes.at().pose.position.z - g_pos(2, 0);
+            box_ref_g(3, 0) = 1.0;
+
+            Eigen::MatrixXf box_translate(ht_matrix * box_ref_g);
+            labeled_boxes.at(i).pose.position.x += box_translate(0, 0);
+            labeled_boxes.at(i).pose.position.y += box_translate(1, 0);
+            labeled_boxes.at(i).pose.position.z += box_translate(2, 0);
+            
+            ht_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
             Eigen::Matrix3f rot_mat(ht_matrix.block(0, 0, 3, 3));
             Eigen::Quaternionf rot_q(rot_mat);
             Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
@@ -910,10 +921,20 @@ namespace jsk_pcl_ros
             labeled_boxes.at(i).value = 1;
           }
         } else {
-          //TODO
-          labeled_boxes.at(i).pose.position.x += ht_matrix(0, 3);
-          labeled_boxes.at(i).pose.position.y += ht_matrix(1, 3);
-          labeled_boxes.at(i).pose.position.z += ht_matrix(2, 3);
+          //todo
+          Eigen::MatrixXf box_ref_g;
+          box_ref_g.resize(4, 1);
+          box_ref_g(0, 0) = labeled_boxes.at().pose.position.x - g_pos(0, 0);
+          box_ref_g(1, 0) = labeled_boxes.at().pose.position.y - g_pos(1, 0);
+          box_ref_g(2, 0) = labeled_boxes.at().pose.position.z - g_pos(2, 0);
+          box_ref_g(3, 0) = 1.0;
+          
+          Eigen::MatrixXf box_translate(ht_matrix * box_ref_g);
+          labeled_boxes.at(i).pose.position.x += box_translate(0, 0);
+          labeled_boxes.at(i).pose.position.y += box_translate(1, 0);
+          labeled_boxes.at(i).pose.position.z += box_translate(2, 0);
+          
+          ht_matrix.block(0, 0, 3, 3) += Eigen::Matrix3f::Identity();
           Eigen::Matrix3f rot_mat(ht_matrix.block(0, 0, 3, 3));
           Eigen::Quaternionf rot_q(rot_mat);
           Eigen::Quaternionf prev_q(labeled_boxes.at(i).pose.orientation.w,
