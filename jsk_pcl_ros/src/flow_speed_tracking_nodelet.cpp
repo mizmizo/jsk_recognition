@@ -841,13 +841,13 @@ namespace jsk_pcl_ros
           }
           if(inlier > Rcnt){
             good_matrixes.push_back(tmp_matrix);
-            good_gs.push_back(pre_pos);
+            good_gs.push_back(pre_g);
             good_errors.push_back(error_sum);
           }
         }
 
         Eigen::MatrixXf ht_matrix;
-        EIgen::MatrixXf g_pos;
+        Eigen::MatrixXf g_pos;
         if(good_matrixes.size() > 0){
           std::cout << "RANSAC successed ";
           std::vector<double>::iterator min_itr = std::min_element(good_errors.begin(), good_errors.end());
@@ -872,9 +872,9 @@ namespace jsk_pcl_ros
             pre_pos(1, l) = checked_flows.at(i).at(itr).point.y - checked_flows.at(i).at(itr).velocity.y;
             pre_pos(2, l) = checked_flows.at(i).at(itr).point.z - checked_flows.at(i).at(itr).velocity.z;
             pre_pos(3, l) = 1.0;
-            g_pos(0, 0) += pre_pos(0, l) / 4;
-            g_pos(1, 0) += pre_pos(1, l) / 4;
-            g_pos(2, 0) += pre_pos(2, l) / 4;
+            g_pos(0, 0) += pre_pos(0, l) / checked_flows.at(i).size();
+            g_pos(1, 0) += pre_pos(1, l) / checked_flows.at(i).size();
+            g_pos(2, 0) += pre_pos(2, l) / checked_flows.at(i).size();
           }
 
           for(l = 0; l < checked_flows.at(i).size(); l++){
@@ -893,9 +893,9 @@ namespace jsk_pcl_ros
           if(flow_variance < thre){
             Eigen::MatrixXf box_ref_g;
             box_ref_g.resize(4, 1);
-            box_ref_g(0, 0) = labeled_boxes.at().pose.position.x - g_pos(0, 0);
-            box_ref_g(1, 0) = labeled_boxes.at().pose.position.y - g_pos(1, 0);
-            box_ref_g(2, 0) = labeled_boxes.at().pose.position.z - g_pos(2, 0);
+            box_ref_g(0, 0) = labeled_boxes.at(i).pose.position.x - g_pos(0, 0);
+            box_ref_g(1, 0) = labeled_boxes.at(i).pose.position.y - g_pos(1, 0);
+            box_ref_g(2, 0) = labeled_boxes.at(i).pose.position.z - g_pos(2, 0);
             box_ref_g(3, 0) = 1.0;
 
             Eigen::MatrixXf box_translate(ht_matrix * box_ref_g);
@@ -924,9 +924,9 @@ namespace jsk_pcl_ros
           //todo
           Eigen::MatrixXf box_ref_g;
           box_ref_g.resize(4, 1);
-          box_ref_g(0, 0) = labeled_boxes.at().pose.position.x - g_pos(0, 0);
-          box_ref_g(1, 0) = labeled_boxes.at().pose.position.y - g_pos(1, 0);
-          box_ref_g(2, 0) = labeled_boxes.at().pose.position.z - g_pos(2, 0);
+          box_ref_g(0, 0) = labeled_boxes.at(i).pose.position.x - g_pos(0, 0);
+          box_ref_g(1, 0) = labeled_boxes.at(i).pose.position.y - g_pos(1, 0);
+          box_ref_g(2, 0) = labeled_boxes.at(i).pose.position.z - g_pos(2, 0);
           box_ref_g(3, 0) = 1.0;
           
           Eigen::MatrixXf box_translate(ht_matrix * box_ref_g);
