@@ -44,7 +44,6 @@
 #include <jsk_recognition_msgs/Flow3DArrayStamped.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/subscriber_filter.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <visualization_msgs/Marker.h>
 #include <cv.hpp>
 #include <stdlib.h>
@@ -191,7 +190,6 @@ namespace jsk_pcl_ros
     std::vector<float> feature_errors;
     cv::calcOpticalFlowPyrLK(prevImg, nextImg, points[0], points[1], features_found, feature_errors, cv::Size(_winSize, _winSize),
                              _maxLevel, termcrit, 0, 0.001);
-    //cv::OPTFLOW_USE_INITIAL_FLOW); 
     std::vector<uchar> back_features_found;
     std::vector<float> back_feature_errors;
     std::vector<cv::Point2f> back_points;
@@ -282,9 +280,6 @@ namespace jsk_pcl_ros
           start_point.x = flow_result.point.x - flow_result.velocity.x * 5;
           start_point.y = flow_result.point.y - flow_result.velocity.y * 5;
           start_point.z = flow_result.point.z - flow_result.velocity.z * 5;
-          // start_point.x = prevp.x;
-          // start_point.y = prevp.y;
-          // start_point.z = prevp.z;
           marker.points.push_back(start_point);
           marker.points.push_back(flow_result.point);
         }

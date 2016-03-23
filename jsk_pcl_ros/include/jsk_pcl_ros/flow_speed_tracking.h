@@ -42,8 +42,6 @@
 #include "jsk_recognition_msgs/ClusterPointIndices.h"
 #include "jsk_recognition_msgs/PolygonArray.h"
 #include "jsk_recognition_msgs/ModelCoefficientsArray.h"
-
-#include "sensor_msgs/PointCloud2.h"
 #include <pcl_ros/pcl_nodelet.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -58,9 +56,7 @@
 #include <jsk_recognition_msgs/Flow3DArrayStamped.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
-#include <cv_bridge/cv_bridge.h>
 #include <std_srvs/Empty.h>
-
 #include <diagnostic_updater/diagnostic_updater.h>
 #include <diagnostic_updater/publisher.h>
 #include "jsk_pcl_ros/pcl_util.h"
@@ -119,7 +115,6 @@ namespace jsk_pcl_ros
     bool approximate_sync_;
     bool publish_marker_;
     bool tracking_mode_;
-    bool check_deformation_;
     int _maxCorners;
     double _qualityLevel;
     double _minDistance;
@@ -130,14 +125,12 @@ namespace jsk_pcl_ros
     cv::Mat prevImg;
     cv::Mat flow;
     bool need_to_flow_init;
+    bool need_to_label_init;
     std::vector<cv::Point2f> points[2];
     pcl::PointCloud<pcl::PointXYZ>::Ptr prevcloud;
     std::vector<jsk_recognition_msgs::BoundingBox> labeled_boxes;
     std::vector<jsk_recognition_msgs::BoundingBox> copy_labeled_boxes;
-    //std::vector<std::vector <Eigen::Quaternionf> > flow_positions;
-    std::vector<Eigen::MatrixXf> flow_positions;
     std::vector<uint> flow_labels;
-    bool need_to_label_init;
   };
 
 }
