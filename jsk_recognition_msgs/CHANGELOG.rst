@@ -2,6 +2,31 @@
 Changelog for package jsk_recognition_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.19 (2016-03-22)
+-------------------
+
+0.3.18 (2016-03-21)
+-------------------
+
+0.3.17 (2016-03-20)
+-------------------
+
+0.3.16 (2016-02-11)
+-------------------
+
+0.3.15 (2016-02-09)
+-------------------
+
+0.3.14 (2016-02-04)
+-------------------
+* [jsk_perception] BoundingBoxToRectArray and rect_array_to_image_marker.py
+* [jsk_pcl_ros] Publish current tracking status (running or idle)
+  from particle_fitler_tracking.
+  And add some scripts to visualize them.
+* [jsk_recognition_msgs] Add min/max fields to  PlotDataArray
+* [jsk_recognition_msgs] Update PlotData message to support more 2d plotting
+* Contributors: Ryohei Ueda
+
 0.3.13 (2015-12-19)
 -------------------
 
@@ -39,7 +64,7 @@ Changelog for package jsk_recognition_msgs
 * [jsk_recognition_msgs] Sort msg files in CMakeLists.txt
 * [jsk_recognition_msgs] Add WeightedPoseArray
 * add new output msg for handle estimate
-* Contributors: Kentaro Wada, MasakiMurooka, Ryohei Ueda, Yu Ohara
+* Contributors: Kentaro Wada, Masaki Murooka, Ryohei Ueda, Yu Ohara
 
 0.3.6 (2015-09-11)
 ------------------

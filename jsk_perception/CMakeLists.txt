@@ -17,7 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   image_geometry
   image_transport
-  image_view2
   jsk_recognition_msgs
   jsk_recognition_utils
   jsk_topic_tools
@@ -26,7 +25,6 @@ find_package(catkin REQUIRED COMPONENTS
   nodelet
   pcl_ros
   posedetection_msgs
-  rosbuild
   roscpp
   roseus
   rospack
@@ -40,10 +38,6 @@ execute_process(
   COMMAND python -c "import sys; sys.exit(ord('$ENV{ROS_DISTRO}'[0]) >= ord('indigo'[0]))"
   RESULT_VARIABLE DISTRO_GE_INDIGO
 )
-if(DISTRO_GE_INDIGO)
-  # robot_self_filter is released on version greater than indigo
-  find_package(robot_self_filter)
-endif()
 
 find_package(Boost REQUIRED COMPONENTS filesystem system signals)
 
@@ -96,6 +90,7 @@ generate_dynamic_reconfigure_options(
   cfg/GaussianBlur.cfg
   cfg/KMeans.cfg
   cfg/ImageTimeDiff.cfg
+  cfg/SelectiveSearch.cfg
 )
 
 add_service_files(FILES EuclideanSegment.srv  SetTemplate.srv  WhiteBalancePoints.srv  WhiteBalance.srv NonMaximumSuppression.srv)
@@ -138,6 +133,7 @@ macro(jsk_perception_nodelet _nodelet_cpp _nodelet_class _single_nodelet_exec_na
   jsk_nodelet(${_nodelet_cpp} ${_nodelet_class} ${_single_nodelet_exec_name}
     jsk_perception_nodelet_sources jsk_perception_nodelet_executables)
 endmacro()
+jsk_perception_nodelet(src/bounding_box_to_rect.cpp "jsk_perception/BoundingBoxToRect" "bounding_box_to_rect")
 jsk_perception_nodelet(src/polygon_array_color_likelihood.cpp "jsk_perception/PolygonArrayColorLikelihood" "polygon_array_color_likelihood")
 jsk_perception_nodelet(src/polygon_array_color_histogram.cpp "jsk_perception/PolygonArrayColorHistogram" "polygon_array_color_histogram")
 jsk_perception_nodelet(src/edge_detector.cpp "jsk_perception/EdgeDetector" "edge_detector")
@@ -187,9 +183,16 @@ jsk_perception_nodelet(src/sliding_window_object_detector.cpp "jsk_perception/Sl
 jsk_perception_nodelet(src/gaussian_blur.cpp "jsk_perception/GaussianBlur" "gaussian_blur")
 jsk_perception_nodelet(src/kmeans.cpp "jsk_perception/KMeans" "kmeans")
 jsk_perception_nodelet(src/tabletop_color_difference_likelihood.cpp "jsk_perception/TabletopColorDifferenceLikelihood" "tabletop_color_difference_likelihood")
-# check existence of robot_self_filter package because robot_self_filter is not installed by apt
-find_package(PkgConfig)
-pkg_check_modules(robot_self_filter robot_self_filter QUIET)
+jsk_perception_nodelet(src/saliency_map_generator_node.cpp "jsk_perception/SaliencyMapGenerator" "saliency_map_generator")
+
+# robot_self_filter is released on version greater than indigo
+find_package(robot_self_filter QUIET)
+if(NOT robot_self_filter_FOUND)
+  # check existence of robot_self_filter package because robot_self_filter is not installed by apt on version less than indigo
+  find_package(PkgConfig)
+  pkg_check_modules(robot_self_filter robot_self_filter QUIET)
+endif()
+
 if(robot_self_filter_FOUND)
   message(AUTHOR_WARNING "robot_self_filter is found.")
   jsk_perception_nodelet(src/robot_to_mask_image.cpp "jsk_perception/RobotToMaskImage" "robot_to_mask_image")

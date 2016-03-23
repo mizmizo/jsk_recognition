@@ -2,6 +2,29 @@
 Changelog for package imagesift
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.19 (2016-03-22)
+-------------------
+
+0.3.18 (2016-03-21)
+-------------------
+
+0.3.17 (2016-03-20)
+-------------------
+* [imagesift] Set ros node name same to the executable name
+* [imagesift] Add ORB detector
+* Contributors: Ryohei Ueda
+
+0.3.16 (2016-02-11)
+-------------------
+
+0.3.15 (2016-02-09)
+-------------------
+* [imagesift] Use ros::WallTime to measure computation time
+* Contributors: Ryohei Ueda
+
+0.3.14 (2016-02-04)
+-------------------
+
 0.3.13 (2015-12-19)
 -------------------
 

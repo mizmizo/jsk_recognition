@@ -2,6 +2,181 @@
 Changelog for package jsk_perception
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.19 (2016-03-22)
+-------------------
+* remove rosbuild from run/build depend
+* remove dynamic_reconfigure.parameter_generator, which only used for rosbuild
+* Contributors: Kei Okada
+
+0.3.18 (2016-03-21)
+-------------------
+* jsk_perception/CMakeLists.txt: remove depends to rosbuild
+* Contributors: Kei Okada
+
+0.3.17 (2016-03-20)
+-------------------
+* remove dynamic_reconfigure.parameter_generator, which only used for rosbuild
+* [jsk_perception] binpack_rect_array.py to enumerate jsk_recognition_msgs/RectArray
+* [jsk_perception] Add selective_search.py
+* [jsk_perception] Use timer callback to speed up tile_image with no_sync:=true
+* [jsk_perception] Cache concatenated image to speed up
+* Contributors: Kei Okada, Ryohei Ueda
+
+0.3.16 (2016-02-11)
+-------------------
+* Merge pull request `#1531 <https://github.com/jsk-ros-pkg/jsk_recognition/issues/1531>`_ from k-okada/sed_package_xml
+  .travis.yml: sed package.xml to use opencv3
+* remove image_view2 from find_package(catkin)
+* [jsk_perception/CMakeLists.txt] call one of find_package or pkg_check_modules for robot_self_filter.
+* [jsk_perception] Set queue_size=1 for tile_image.py
+* [jsk_perception] Fix variable names in edge_detector.cpp
+* [jsk_perception] Publish result after initialization
+* Contributors: Kei Okada, Masaki Murooka, Ryohei Ueda
+
+0.3.15 (2016-02-09)
+-------------------
+* U and V has strange library options; https://github.com/ros/rosdistro/pull/10436#issuecomment-180763393
+* [jsk_perception] Do not subscribe camera info in calc_flow
+* [jsk_perception] Add more 2d feature samples
+* Fix label probabilities output message
+  Modified:
+  - jsk_perception/node_scripts/sklearn_classifier.py
+* Add queue_size option for bof_histogram_extractor
+* Contributors: Kei Okada, Kentaro Wada, Ryohei Ueda
+
+0.3.14 (2016-02-04)
+-------------------
+* Merge pull request #1513 from garaemon/bounding-box-to-rect-array
+  [jsk_perception] BoundingBoxToRectArray and rect_array_to_image_marker.py
+* Add ~queue_size option for synchronization
+  Modified:
+  - jsk_perception/include/jsk_perception/apply_mask_image.h
+  - jsk_perception/src/apply_mask_image.cpp
+* [jsk_perception/ApplyMask] Add option to clip mask image
+  Modified:
+  - jsk_perception/include/jsk_perception/apply_mask_image.h
+  - jsk_perception/src/apply_mask_image.cpp
+* [jsk_perception/tile_image.py] Add ~no_sync parameter to disable
+  synchronization of input topics.
+* [jsk_perception] Skip for empty sift features
+  Modified:
+  - jsk_perception/node_scripts/bof_histogram_extractor.py
+* [jsk_perception] BoundingBoxToRectArray and rect_array_to_image_marker.py
+* [jsk_perception] [kalman-filtered-objectdetection-marker.l] fix code
+* added default num_threads\_ value and modified readme.md
+* Merge branch 'master' of https://github.com/jsk-ros-pkg/jsk_recognition into saliency_map_generator
+  Conflicts:
+  jsk_perception/CMakeLists.txt
+* [jsk_perception] Except index error on SolidityRagMerge
+  Modified:
+  - jsk_perception/node_scripts/solidity_rag_merge.py
+* parallelized main loop
+* [jsk_perception/bof_histogram_extractor.py] Skip if only background image
+* [jsk_perception] Skip empty image
+* [jsk_perception] Publish info in sample launch file
+  Modified:
+  - jsk_perception/sample/publish_fixed_images.launch
+* [jsk_perception] Stop using deprecated PLUGINLIB_DECLARE_CLASS
+  Modified:
+  - jsk_perception/src/color_histogram.cpp
+  - jsk_perception/src/edge_detector.cpp
+  - jsk_perception/src/hough_circles.cpp
+  - jsk_perception/src/sparse_image_decoder.cpp
+  - jsk_perception/src/sparse_image_encoder.cpp
+* [jsk_perception] Add solidity_rag_merge
+  This is to find image region with high solidity.
+  Firstly, I will use this for vacuum gripper's approach point
+  decision making.
+  Added:
+  - jsk_perception/node_scripts/solidity_rag_merge.py
+* [jsk_perception] Set header correctly
+  Modified:
+  - jsk_perception/node_scripts/label_image_decomposer.py
+* Merge pull request #1457 from wkentaro/fix-unconfigured-cmake-packagexml
+  [jsk_perception] Fix unconfigured cmake and manifest
+* Merge pull request #1455 from wkentaro/publish-label-fg-bg
+  [jsk_perception] Publish label fg/bg decomposed masks
+* [jsk_perception] Check ROS_DISTRO for find_package of robot_self_filter
+* [jsk_perception] Fix unconfigured cmake and manifest
+  Modified:
+  - jsk_perception/CMakeLists.txt
+  - jsk_perception/package.xml
+* [jsk_perception] Keep original encoding and scale to visualize
+  Modified:
+  - jsk_perception/node_scripts/label_image_decomposer.py
+* [jsk_perception] ColorizeLabels info -> debug
+  Modified:
+  - jsk_perception/src/colorize_labels.cpp
+* [jsk_perception] Add roslint_cpp not as rostest
+  Modified:
+  jsk_perception/CMakeLists.txt
+* [jsk_perception] Publish label fg/bg decomposed masks
+  Modified:
+  - jsk_perception/node_scripts/label_image_decomposer.py
+* Merge pull request #1398 from wkentaro/roslint-test-for-node-scripts
+  [jsk_perception] Run roslint for python code
+* [jsk_perception] Visualize label in label_image_decomposer.py
+  Modified:
+  - jsk_perception/node_scripts/label_image_decomposer.py
+* [jsk_perception] Read reference color histogram from a yaml file in PolygonArrayColorLikelihood
+  to avoid race condition between input topics
+  Modified:
+  - doc/jsk_perception/nodes/polygon_array_color_likelihood.md
+  - jsk_perception/CMakeLists.txt
+  - jsk_perception/include/jsk_perception/polygon_array_color_likelihood.h
+  - jsk_perception/package.xml
+  - jsk_perception/src/polygon_array_color_likelihood.cpp
+* [jsk_perception] Keep original resolution if all the input images has
+  same shape and add ~draw_input_topic parameter to draw topic name on
+  the tiled images
+  Modified:
+  - jsk_perception/node_scripts/tile_image.py
+  - jsk_recognition_utils/python/jsk_recognition_utils/visualize.py
+* Merge pull request #1426 from wkentaro/merge-sklearn-to-jsk-perception
+  Merge sklearn to jsk_perception
+* [jsk_perception] Add basic_2d_features.launch to overview
+  effective technique
+  Added:
+  - jsk_perception/launch/basic_2d_features.launch
+* [jsk_perception] Run roslint for python code
+* Merge pull request #1438 from wkentaro/image-to-label
+  [jsk_perception] Add image_to_label.py
+* [jsk_perception] Use StrictVersions instead of ROS_DISTRO
+  Modified:
+  - jsk_perception/node_scripts/tile_image.py
+* [jsk_perception/label_image_decomposer.py] Fix typo
+  Modified:
+  - jsk_perception/node_scripts/label_image_decomposer.py
+* [jsk_perception/label_image_decomposer.py] Can specify queue_size
+  Modified:
+  - jsk_perception/node_scripts/label_image_decomposer.py
+* [jsk_perception] Fix typo
+  Modified:
+  - jsk_perception/node_scripts/label_image_decomposer.py
+* [jsk_perception] Fix tile_image.py for hydro.
+  1. Disable approximate sync for hydro. it's not supported on hydro
+  2. Use PIL.Image.frombytes instead of PIL.Image.fromstring
+* [jsk_perception] Add image_to_label.py
+  Added:
+  - jsk_perception/node_scripts/image_to_label.py
+* [jsk_perception] Fix typo in bof_histogram_extractor.py
+  Modified:
+  - jsk_perception/node_scripts/bof_histogram_extractor.py
+* Merge sklearn to jsk_perception
+  Modified:
+  jsk_pcl_ros/CMakeLists.txt
+  jsk_pcl_ros/package.xml
+  jsk_perception/package.xml
+  Added:
+  jsk_perception/node_scripts/random_forest_server.py
+  jsk_perception/sample/random_forest_client_sample.py
+  jsk_perception/sample/random_forest_sample.launch
+  jsk_perception/sample/random_forest_sample_data_x.txt
+  jsk_perception/sample/random_forest_sample_data_y.txt
+* added param for printing fps to frame
+* nodelet for computing image space saliency map
+* Contributors: Kamada Hitoshi, Kei Okada, Kentaro Wada, Ryohei Ueda, Krishneel Chaudhary
+
 0.3.13 (2015-12-19)
 -------------------
 
@@ -54,7 +229,7 @@ Changelog for package jsk_perception
 * [jsk_perception] Add PolygonArrayColorHistogram
 * add sample launch file.
 * add robot_to_mask source files.
-* Contributors: Kentaro Wada, MasakiMurooka, Ryohei Ueda, Masaki Murooka
+* Contributors: Kentaro Wada, Masaki Murooka, Ryohei Ueda
 
 0.3.8 (2015-12-08)
 ------------------

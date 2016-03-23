@@ -36,6 +36,10 @@ It also publishes tf of centroids of each cluster and oriented bounding box of t
 
    Mask image generated from cluster point indices.
 
+* `~centroid_pose_array` (`geometry_msgs/PoseArray`)
+
+   Each cloud's centroid poses.
+
 * `~negative_indices` (`pcl_msgs/PointIndices`)
 
   Point indices which are not included in input indices.
@@ -77,3 +81,7 @@ It also publishes tf of centroids of each cluster and oriented bounding box of t
 * `~force_to_flip_z_axis` (Boolean, default: `False`)
 
    Flip z axis direction if this value is true.
+
+* `~max_size`, `~min_size` (Int, default: `-1`, `-1`)
+
+   If positive value, ignores cluster which points size is external from (`clusterPointsSize` < `~min_size` or `clusterPointsSize` > `~max_size`).
