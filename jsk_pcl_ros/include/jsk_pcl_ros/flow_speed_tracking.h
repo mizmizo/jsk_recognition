@@ -39,9 +39,6 @@
 #include <ros/ros.h>
 #include <ros/names.h>
 #include <cv_bridge/cv_bridge.h>
-#include "jsk_recognition_msgs/ClusterPointIndices.h"
-#include "jsk_recognition_msgs/PolygonArray.h"
-#include "jsk_recognition_msgs/ModelCoefficientsArray.h"
 #include <pcl_ros/pcl_nodelet.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -51,7 +48,6 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_types.h>
 #include <pcl/impl/point_types.hpp>
-#include <tf/transform_broadcaster.h>
 #include <jsk_recognition_msgs/BoundingBoxArray.h>
 #include <jsk_recognition_msgs/Flow3DArrayStamped.h>
 #include <sensor_msgs/PointCloud2.h>
