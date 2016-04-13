@@ -66,8 +66,13 @@ namespace jsk_perception
     vital_checker_->poke();
     cv_bridge::CvImagePtr cv_ptr;
     cv_ptr = cv_bridge::toCvCopy(img_msg, "mono8");
+    cv::Mat img(img_msg->height, img_msg->width, CV_8UC1);
+    cv_ptr->image.copyTo(img);
+    cv::Mat bin_img;
     cv_bridge::CvImagePtr bin_ptr;
-    cv::threshold(cv_ptr->image, bin_ptr->image, 0, 255, cv::THRESH_BINARY|cv::THRESH_OTSU);
+    bin_ptr = cv_bridge::toCvCopy(img_msg, "mono8");
+    cv::threshold(img, bin_img, 0, 255, cv::THRESH_BINARY|cv::THRESH_OTSU);
+    bin_img.copyTo(bin_ptr->image);
     sensor_msgs::ImagePtr bin_msg= bin_ptr->toImageMsg();
     pub_.publish(bin_msg);
   }
