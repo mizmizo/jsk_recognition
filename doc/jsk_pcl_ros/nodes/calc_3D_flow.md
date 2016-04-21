@@ -44,18 +44,17 @@ Calculate 3D Optical Flow from image and pointcloud
   Toggle marker publishing.
 
 * `maxCorners` (Integer, default: `100`)
-  
-  Maximum number of corners to calculate flow.
-
 * `qualityLevel` (Double, default: `0.05`)
-
 * `minDistance` (Double, default: `5.0`)
-
 * `blockSize` (Integer, default: `3`)
+
+  Parameters of [cv::goodFeaturesToTrack](http://docs.opencv.org/2.4/modules/imgproc/doc/feature_detection.html#goodfeaturestotrack)
 
 * `subPixWinSize` (Integer, default: `15`)
 
-* `winSize` (Integer, default: `20`)
+  Parameter of [cv::cornerSubPix](http://docs.opencv.org/2.4/modules/imgproc/doc/feature_detection.html#cornersubpix)
 
+* `winSize` (Integer, default: `20`)
 * `maxLevel` (Integer, default: `5`)
 
+  Parameters of [cv::calcOpticalFlowPyrLK](http://docs.opencv.org/2.4/modules/video/doc/motion_analysis_and_object_tracking.html#calcopticalflowpyrlk)
