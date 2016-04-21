@@ -213,14 +213,6 @@
          type="jsk_pcl_ros::Calc3DFlow"
          base_class_type="nodelet::Nodelet">
   </class>
-  <class name="jsk_pcl/FlowSegmentation"
-         type="jsk_pcl_ros::FlowSegmentation"
-         base_class_type="nodelet::Nodelet">
-  </class>
-  <class name="jsk_pcl/FlowTracking"
-         type="jsk_pcl_ros::FlowTracking"
-         base_class_type="nodelet::Nodelet">
-  </class>
   <class name="jsk_pcl/FlowSpeedTracking"
          type="jsk_pcl_ros::FlowSpeedTracking"
          base_class_type="nodelet::Nodelet">
