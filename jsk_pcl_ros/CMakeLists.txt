@@ -56,6 +56,7 @@ add_service_files(FILES SwitchTopic.srv
   PolygonOnEnvironment.srv
   ICPAlignWithBox.srv
   ICPAlign.srv
+  GetFallAffordance.srv
   CheckCollision.srv)
 
 # generate the dynamic_reconfigure config file
@@ -281,6 +282,8 @@ jsk_pcl_nodelet(src/joint_state_static_filter_nodelet.cpp
   "jsk_pcl/JointStateStaticFilter" "joint_state_static_filter")
 jsk_pcl_nodelet(src/icp_registration_nodelet.cpp
   "jsk_pcl/ICPRegistration" "icp_registration")
+jsk_pcl_nodelet(src/fall_affordance_calculator_nodelet.cpp
+  "jsk_pcl/FallAffordanceCalculator" "fall_affordance_calculator")
 jsk_pcl_util_nodelet_deprecated(src/transform_pointcloud_in_bounding_box_nodelet.cpp
   "jsk_pcl/TransformPointcloudInBoundingBox" "transform_pointcloud_in_bounding_box")
 jsk_pcl_nodelet(src/pointcloud_database_server_nodelet.cpp
@@ -331,6 +334,10 @@ jsk_pcl_util_nodelet_deprecated(src/plane_concatenator_nodelet.cpp
   "jsk_pcl/PlaneConcatenator" "plane_concatenator")
 jsk_pcl_nodelet(src/add_color_from_image_nodelet.cpp
   "jsk_pcl/AddColorFromImage" "add_color_from_image")
+jsk_pcl_nodelet(src/calc_3D_flow_nodelet.cpp
+  "jsk_pcl/Calc3DFlow" "calc_3D_flow")
+jsk_pcl_nodelet(src/flow_speed_tracking_nodelet.cpp
+  "jsk_pcl/FlowSpeedTracking" "flow_speed_tracking")
 jsk_pcl_nodelet(src/torus_finder_nodelet.cpp "jsk_pcl/TorusFinder" "torus_finder")
 jsk_pcl_nodelet(src/mask_image_filter_nodelet.cpp
   "jsk_pcl/MaskImageFilter" "mask_image_filter")

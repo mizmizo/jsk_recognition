@@ -124,6 +124,7 @@ add_executable(white_balance_converter src/white_balance_converter.cpp)
 add_executable(hough_lines src/hough_lines.cpp)
 add_executable(rectangle_detector src/rectangle_detector.cpp)
 add_executable(calc_flow src/calc_flow.cpp)
+add_executable(calc_klt_flow src/calc_klt_flow.cpp)
 add_executable(color_histogram_sliding_matcher src/color_histogram_sliding_matcher.cpp)
 add_library(oriented_gradient src/oriented_gradient.cpp)
 add_executable(oriented_gradient_node src/oriented_gradient_node.cpp)
@@ -223,6 +224,7 @@ target_link_libraries(white_balance_converter  ${catkin_LIBRARIES})
 target_link_libraries(hough_lines              ${catkin_LIBRARIES})
 target_link_libraries(rectangle_detector       ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 target_link_libraries(calc_flow                ${catkin_LIBRARIES})
+target_link_libraries(calc_klt_flow                ${catkin_LIBRARIES})
 target_link_libraries(color_histogram_sliding_matcher  ${catkin_LIBRARIES})
 target_link_libraries(oriented_gradient_node   ${catkin_LIBRARIES} ${Boost_LIBRARIES} oriented_gradient)
 target_link_libraries(oriented_gradient   ${catkin_LIBRARIES} ${Boost_LIBRARIES} oriented_gradient)
@@ -254,7 +256,7 @@ add_custom_target(eusmodel_template ALL DEPENDS
   ${PROJECT_SOURCE_DIR}/launch/eusmodel_detection_elevator-panels-eng8.launch
   ${PROJECT_SOURCE_DIR}/launch/eusmodel_detection_elevator-panels-eng2.launch)
 
-install(TARGETS camshiftdemo virtual_camera_mono point_pose_extractor white_balance_converter hough_lines rectangle_detector calc_flow color_histogram_sliding_matcher oriented_gradient oriented_gradient_node ${PROJECT_NAME}
+install(TARGETS camshiftdemo virtual_camera_mono point_pose_extractor white_balance_converter hough_lines rectangle_detector calc_flow calc_klt_flow color_histogram_sliding_matcher oriented_gradient oriented_gradient_node ${PROJECT_NAME}
   ${jsk_perception_nodelet_executables}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

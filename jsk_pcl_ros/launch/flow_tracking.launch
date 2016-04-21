@@ -1,0 +1,26 @@
+<launch>
+  <!-- <arg name="INPUT_CLOUD" default="/camera/depth_registered/points"/> -->
+  <!-- <arg name="INPUT_IMAGE" default="/camera/rgb/image_rect_color"/> -->
+  <arg name="INPUT_CLOUD" default="/multisense/organized_image_points2_color"/>
+  <arg name="INPUT_IMAGE" default="/multisense/left/image_rect_color"/>
+  <node pkg="jsk_pcl_ros" type="calc_3D_flow" name="calc_3D_flow">
+    <remap from="~input" to="$(arg INPUT_CLOUD)"/>
+    <remap from="~input/image" to="$(arg INPUT_IMAGE)"/>
+    <param name="tracking_mode" value="true"/>
+    <param name="maxCorners" value="150"/>
+  </node>
+  <!-- <node pkg="image_view" type="image_view" name="3D_flow_image"> -->
+  <!--   <remap from="image" to="/calc_3D_flow/output/image"/> -->
+  <!-- </node> -->
+  <node pkg="jsk_pcl_ros" type="flow_segmentation" name="flow_segmentation">
+    <remap from="~box" to="/cluster_decomposer_final/boxes"/>
+    <remap from="~flow" to="/calc_3D_flow/output/flow"/>
+  </node>
+  <node pkg="jsk_interactive_marker"
+        type="bounding_box_marker"
+        name="flow_bounding_box_marker"
+        output="screen"
+        >
+    <remap from="~bounding_box_array" to="flow_segmentation/boxes" />
+  </node>
+</launch>

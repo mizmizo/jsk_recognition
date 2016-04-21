@@ -209,6 +209,14 @@
          type="jsk_pcl_ros::AddColorFromImage"
          base_class_type="nodelet::Nodelet">
   </class>
+  <class name="jsk_pcl/Calc3DFlow"
+         type="jsk_pcl_ros::Calc3DFlow"
+         base_class_type="nodelet::Nodelet">
+  </class>
+  <class name="jsk_pcl/FlowSpeedTracking"
+         type="jsk_pcl_ros::FlowSpeedTracking"
+         base_class_type="nodelet::Nodelet">
+  </class>
   <class name="jsk_pcl/SupervoxelSegmentation"
          type="jsk_pcl_ros::SupervoxelSegmentation"
          base_class_type="nodelet::Nodelet">
@@ -314,6 +322,12 @@
          base_class_type="nodelet::Nodelet">
     <description>
       register pointclouds using ICP algorithm
+    </description>
+  </class>
+  <class name="jsk_pcl/FallAffordanceCalculator" type="jsk_pcl_ros::FallAffordanceCalculator"
+         base_class_type="nodelet::Nodelet">
+    <description>
+      calculate fall affordance with pointcloud and b-box
     </description>
   </class>
   <class name="jsk_pcl/OrganizedPassThrough" type="jsk_pcl_ros::OrganizedPassThrough"

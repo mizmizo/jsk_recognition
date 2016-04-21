@@ -4,7 +4,7 @@
   <arg name="SELF_FILTER_PARAM" default="$(find jsk_pr2_startup)/jsk_pr2_sensors/tilt_self_filter.yaml" />
   <arg name="JOINT_STATIC_FILTER" default="false" />
   <arg name="FILTER_JOINT_PARAM" value="$(find jsk_pcl_ros)/config/pr2_sensor_joint.yaml" />
-  <arg name="INPUT" default="/camera/depth_registered/points" />
+  <arg name="INPUT" default="/multisense/organized_image_points2_color" />
   <arg name="ICP_REGISTRATION" default="false" />
   <arg name="PUBLISH_BOX_TF" default="false" />
   <arg name="LAUNCH_MANAGER" default="true" />
