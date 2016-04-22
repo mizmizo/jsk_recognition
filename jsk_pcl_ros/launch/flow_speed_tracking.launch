@@ -1,12 +1,13 @@
 <launch>
   <arg name="INPUT_CLOUD" default="/camera/depth_registered/points"/>
   <arg name="INPUT_IMAGE" default="/camera/rgb/image_rect_color"/>
+  <arg name="INPUT_BOX" default="/cluster_decomposer_final/boxes"/>
   <!-- <arg name="INPUT_CLOUD" default="/multisense/organized_image_points2_color"/> -->
   <!-- <arg name="INPUT_IMAGE" default="/multisense/left/image_rect_color"/> -->
   <node pkg="jsk_pcl_ros" type="flow_speed_tracking" name="flow_speed_tracking">
     <remap from="~input" to="$(arg INPUT_CLOUD)"/>
     <remap from="~input/image" to="$(arg INPUT_IMAGE)"/>
-    <remap from="~box" to="/cluster_decomposer_final/boxes"/>
+    <remap from="~input/box" to="$(arg INPUT_BOX)"/>
     <param name="tracking_mode" value="true"/>
     <param name="maxCorners" value="150"/>
   </node>
