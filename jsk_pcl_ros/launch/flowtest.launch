@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="jsk_pcl_ros" type="calc_3D_flow" name="calc_3D_flow">
+    <remap from="~input" to="/camera/depth_registered/points"/>
+    <remap from="~input/image" to="/camera/rgb/image_rect_color"/>
+    <param name="maxCorners" value="150"/>
+    </node>
+</launch>
