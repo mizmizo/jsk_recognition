@@ -1,7 +1,7 @@
 # FlowTracking
+![](images/flow_tracking.png)
 
-
-Calculate 3D Optical Flow from image and pointcloud and Track objects translate and rotation.
+Calculate 3D Optical Flow from image and pointcloud and Track translation and rotation of objects.
 The regions of object are described in 'jsk_recognition_msgs/BoundingBox'. Initial state of objects are given by '~input/box'.
 
 ## Subscribing Topic
@@ -15,7 +15,7 @@ The regions of object are described in 'jsk_recognition_msgs/BoundingBox'. Initi
 
 * `~input/box` (`jsk_recognition_msgs/BoundingBoxArray`)
 
-  Input bounding box. Objects track result is calculated from this input and translation and rotation calculated from optical flow.
+  Input bounding box. Objects track result is calculated from this input and movement calculated from optical flow.
 
 ## Publishing Topic
 * `~output/flow` (`jsk_recognition_msgs/Flow3DArrayStamped`)
@@ -24,7 +24,7 @@ The regions of object are described in 'jsk_recognition_msgs/BoundingBox'. Initi
 
 * `~output/image` (`sensor_msgs/Image`)
 
-  Output image of flow added on input image.
+  Output image of flow drawed on input image.
 
 * `~output/visualized_flow` (`visualization_msgs/Marker`)
 

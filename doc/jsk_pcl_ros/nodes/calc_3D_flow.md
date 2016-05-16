@@ -19,7 +19,7 @@ Calculate 3D Optical Flow from image and pointcloud
 
 * `~output/image` (`sensor_msgs/Image`)
 
-  Output image of flow added on input image.
+  Output image of flow drawed on input image.
 
 * `~output/visualized_flow` (`visualization_msgs/Marker`)
 
