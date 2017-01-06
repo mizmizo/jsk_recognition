@@ -249,10 +249,10 @@ if(NOT robot_self_filter_FOUND)
   pkg_check_modules(robot_self_filter robot_self_filter QUIET)
 endif()
 
-if(robot_self_filter_FOUND)
-  message(AUTHOR_WARNING "robot_self_filter is found.")
-  jsk_add_nodelet(src/robot_to_mask_image.cpp "jsk_perception/RobotToMaskImage" "robot_to_mask_image")
-endif()
+# if(robot_self_filter_FOUND)
+#   message(AUTHOR_WARNING "robot_self_filter is found.")
+#   jsk_add_nodelet(src/robot_to_mask_image.cpp "jsk_perception/RobotToMaskImage" "robot_to_mask_image")
+# endif()
 
 # compiling jsk_perception library for nodelet
 add_library(${PROJECT_NAME} SHARED ${jsk_perception_nodelet_sources}
@@ -260,11 +260,12 @@ add_library(${PROJECT_NAME} SHARED ${jsk_perception_nodelet_sources}
   src/histogram_of_oriented_gradients.cpp
   )
 
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${robot_self_filter_LIBRARIES} ${libcmt_LIBRARIES} yaml-cpp)
-if(robot_self_filter_FOUND)
-  include_directories(${robot_self_filter_INCLUDE_DIRS})
-  target_link_libraries(${PROJECT_NAME} ${robot_self_filter_LIBRARIES})
-endif()
+#target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${robot_self_filter_LIBRARIES} ${libcmt_LIBRARIES} yaml-cpp)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${libcmt_LIBRARIES} yaml-cpp)
+# if(robot_self_filter_FOUND)
+#   include_directories(${robot_self_filter_INCLUDE_DIRS})
+#   target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${robot_self_filter_LIBRARIES})
+# endif()
 if("${OpenCV_VERSION}" VERSION_GREATER "2.4.8")
   # This condition is to avoid changing current behavior
   target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBRARIES})
